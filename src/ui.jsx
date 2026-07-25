@@ -176,14 +176,20 @@ export function showBadge(show) {
   );
 }
 
+// Canonical = a real numbered episode. Specials seasons (S0) and episodes
+// flagged as specials (podcasts, snippets, recaps) stay visible in the
+// episode list but never drive progress, badges, feeds or the watchlist.
+export const isCanonSeason = (se) => !se.isSpecials && se.number !== 0;
+export const isCanonEpisode = (se, e) => isCanonSeason(se) && !e.special;
+
 export function showProgress(show) {
   const today = new Date().toISOString().slice(0, 10);
   let watched = 0;
   let total = 0;
   let airedUnwatched = 0;
   for (const se of show.seasons) {
-    if (se.isSpecials) continue;
     for (const e of se.episodes) {
+      if (!isCanonEpisode(se, e)) continue;
       // Episodes with a known future air date don't count against progress.
       const aired = !e.airDate || e.airDate <= today;
       if (!aired) continue;

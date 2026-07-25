@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Stars, VaultMark, Progress, showState } from "../ui.jsx";
+import { Modal, Stars, VaultMark, Progress, showState, isCanonEpisode } from "../ui.jsx";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
   addMovieFromTmdb,
@@ -57,12 +57,14 @@ function lastWatchedAt(s, { realOnly = false } = {}) {
 
 function nextEpisode(s) {
   const today = new Date().toISOString().slice(0, 10);
-  const seasons = [...s.seasons]
-    .filter((se) => !se.isSpecials)
-    .sort((a, b) => a.number - b.number);
+  const seasons = [...s.seasons].sort((a, b) => a.number - b.number);
   for (const se of seasons)
     for (const e of [...se.episodes].sort((a, b) => a.number - b.number))
-      if (!e.isWatched && (!e.airDate || e.airDate <= today))
+      if (
+        isCanonEpisode(se, e) &&
+        !e.isWatched &&
+        (!e.airDate || e.airDate <= today)
+      )
         return { season: se.number, episode: e.number, name: e.name };
   return null;
 }
@@ -517,8 +519,8 @@ function LibShelf({ title, rows, onOpenShow, onMarkNext }) {
           let watched = 0;
           let total = 0;
           for (const se of s.seasons) {
-            if (se.isSpecials) continue;
             for (const e of se.episodes) {
+              if (!isCanonEpisode(se, e)) continue;
               total++;
               if (e.isWatched) watched++;
             }

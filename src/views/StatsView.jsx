@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { fmtDate } from "../ui.jsx";
+import { fmtDate, isCanonEpisode } from "../ui.jsx";
 
 // Chart colors come from theme CSS variables (validated per surface).
 const C_MOVIES = "var(--c-movies)";
@@ -156,8 +156,8 @@ export default function StatsView({ lib }) {
     for (const s of lib.shows) {
       let watched = 0, aired = 0;
       for (const se of s.seasons) {
-        if (se.isSpecials) continue;
         for (const e of se.episodes) {
+          if (!isCanonEpisode(se, e)) continue;
           if (e.airDate && e.airDate > today) continue;
           aired++;
           if (e.isWatched) watched++;

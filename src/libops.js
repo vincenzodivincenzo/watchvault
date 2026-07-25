@@ -1,6 +1,7 @@
 // Shared library operations: adding titles from TMDB (used by search & discover).
 
 import { movieDetails, tvDetails, fetchAllSeasons, movieMeta, tvMeta } from "./tmdb.js";
+import { isCanonEpisode } from "./ui.jsx";
 
 export async function addMovieFromTmdb(update, key, tmdbId) {
   const det = await movieDetails(key, tmdbId);
@@ -64,8 +65,8 @@ export function markItemWatched(update, kind, uuid, { dateIso, rating }) {
       if (!s) return;
       if (rating) s.rating = rating;
       for (const se of s.seasons) {
-        if (se.isSpecials) continue;
         for (const e of se.episodes) {
+          if (!isCanonEpisode(se, e)) continue;
           const aired = !e.airDate || e.airDate <= today;
           if (aired && !e.isWatched) {
             e.isWatched = true;

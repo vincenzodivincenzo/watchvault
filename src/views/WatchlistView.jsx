@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Poster, Modal, Stars, fmtDate, CommunityRatings } from "../ui.jsx";
+import { Poster, Modal, Stars, fmtDate, CommunityRatings, isCanonEpisode } from "../ui.jsx";
 import { watchProviders } from "../tmdb.js";
 
 function isShowToWatch(s) {
   if (s.status === "stopped") return false;
-  return !s.seasons.some((se) => se.episodes.some((e) => e.isWatched));
+  // Only canonical episodes count as "started" — watching a special doesn't
+  // pull a show off the watchlist.
+  return !s.seasons.some((se) =>
+    se.episodes.some((e) => isCanonEpisode(se, e) && e.isWatched)
+  );
 }
 
 export default function WatchlistView({ lib, query, update, notify }) {
@@ -97,8 +101,8 @@ export default function WatchlistView({ lib, query, update, notify }) {
         title = s.title;
         if (rating) s.rating = rating;
         for (const se of s.seasons) {
-          if (se.isSpecials) continue;
           for (const e of se.episodes) {
+            if (!isCanonEpisode(se, e)) continue;
             const aired = !e.airDate || e.airDate <= today;
             if (aired && !e.isWatched) {
               e.isWatched = true;
@@ -174,7 +178,8 @@ function Section({ title, items, kind, onLog, onRemove }) {
                   {kind === "movie"
                     ? it.year || "—"
                     : `${it.seasons.reduce(
-                        (n, se) => n + (se.isSpecials ? 0 : se.episodes.length),
+                        (n, se) =>
+                          n + se.episodes.filter((e) => isCanonEpisode(se, e)).length,
                         0
                       )} eps`}
                 </span>
@@ -231,10 +236,12 @@ function LogWatchModal({ kind, item, onConfirm, onClose }) {
       ? item.seasons.reduce(
           (n, se) =>
             n +
-            (se.isSpecials
-              ? 0
-              : se.episodes.filter((e) => !e.isWatched && (!e.airDate || e.airDate <= today))
-                  .length),
+            se.episodes.filter(
+              (e) =>
+                isCanonEpisode(se, e) &&
+                !e.isWatched &&
+                (!e.airDate || e.airDate <= today)
+            ).length,
           0
         )
       : 0;
