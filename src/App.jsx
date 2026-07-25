@@ -144,6 +144,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [omdbKey, pendingOmdb === 0, lib === null]);
 
+  // Home-feed cards jump straight into a show's episode list.
+  const [pendingShow, setPendingShow] = useState(null);
+  const openShowFromHome = useCallback((uuid) => {
+    setPendingShow(uuid);
+    setView("shows");
+  }, []);
+
   const goToSearch = useCallback(() => {
     setView("search");
     setTimeout(() => window.dispatchEvent(new Event("wv-focus-search")), 60);
@@ -297,13 +304,25 @@ export default function App() {
             <MoviesView lib={lib} query={query} update={update} />
           )}
           {view === "shows" && (
-            <ShowsView lib={lib} query={query} update={update} notify={notify} />
+            <ShowsView
+              lib={lib}
+              query={query}
+              update={update}
+              notify={notify}
+              pendingOpen={pendingShow}
+              onPendingConsumed={() => setPendingShow(null)}
+            />
           )}
           {view === "watchlist" && (
             <WatchlistView lib={lib} query={query} update={update} notify={notify} />
           )}
           {view === "discover" && (
-            <DiscoverView lib={lib} update={update} notify={notify} />
+            <DiscoverView
+              lib={lib}
+              update={update}
+              notify={notify}
+              onOpenShow={openShowFromHome}
+            />
           )}
           {view === "stats" && <StatsView lib={lib} />}
           {view === "settings" && (

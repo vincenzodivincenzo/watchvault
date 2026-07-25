@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Poster,
   Modal,
@@ -60,12 +60,27 @@ export function mergeFreshSeasons(x, det, fresh) {
   x.seasons.sort((a, b) => a.number - b.number);
 }
 
-export default function ShowsView({ lib, query, update, notify }) {
+export default function ShowsView({
+  lib,
+  query,
+  update,
+  notify,
+  pendingOpen,
+  onPendingConsumed,
+}) {
   // Filter & sort choices are remembered in the library file.
   const prefs = lib.settings?.viewPrefs?.shows || {};
   const [filter, setFilterState] = useState(prefs.filter || "all");
   const [sort, setSortState] = useState(prefs.sort || "title");
   const [openUuid, setOpenUuid] = useState(null);
+
+  // A home-feed card asked us to open a specific show's episode list.
+  useEffect(() => {
+    if (pendingOpen) {
+      setOpenUuid(pendingOpen);
+      onPendingConsumed?.();
+    }
+  }, [pendingOpen, onPendingConsumed]);
 
   const remember = (patch) =>
     update((next) => {
