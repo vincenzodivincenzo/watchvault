@@ -182,17 +182,23 @@ export function showBadge(show) {
 export const isCanonSeason = (se) => !se.isSpecials && se.number !== 0;
 export const isCanonEpisode = (se, e) => isCanonSeason(se) && !e.special;
 
+// Aired = a past air date — or a legacy TV Time episode (no TMDB id), which
+// carries no dates but definitely aired. TMDB-synced episodes without an air
+// date are announced-but-unaired placeholders and must not count.
+export const isAiredEpisode = (e) => {
+  if (e.airDate) return e.airDate <= new Date().toISOString().slice(0, 10);
+  return !e.tmdb;
+};
+
 export function showProgress(show) {
-  const today = new Date().toISOString().slice(0, 10);
   let watched = 0;
   let total = 0;
   let airedUnwatched = 0;
   for (const se of show.seasons) {
     for (const e of se.episodes) {
       if (!isCanonEpisode(se, e)) continue;
-      // Episodes with a known future air date don't count against progress.
-      const aired = !e.airDate || e.airDate <= today;
-      if (!aired) continue;
+      // Unaired (future or announced-with-no-date) episodes don't count.
+      if (!isAiredEpisode(e)) continue;
       total++;
       if (e.isWatched) watched++;
       else airedUnwatched++;

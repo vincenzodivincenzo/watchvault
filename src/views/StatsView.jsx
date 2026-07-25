@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { fmtDate, isCanonEpisode } from "../ui.jsx";
+import { fmtDate, isCanonEpisode, isAiredEpisode } from "../ui.jsx";
 
 // Chart colors come from theme CSS variables (validated per surface).
 const C_MOVIES = "var(--c-movies)";
@@ -151,14 +151,13 @@ export default function StatsView({ lib }) {
       weekdays[weekdayIndex(e.d)][e.kind === "movie" ? "movies" : "episodes"]++;
 
     // Per-show progress (aired episodes only) → completion + taste profile.
-    const today = new Date().toISOString().slice(0, 10);
     const progressList = [];
     for (const s of lib.shows) {
       let watched = 0, aired = 0;
       for (const se of s.seasons) {
         for (const e of se.episodes) {
           if (!isCanonEpisode(se, e)) continue;
-          if (e.airDate && e.airDate > today) continue;
+          if (!isAiredEpisode(e)) continue;
           aired++;
           if (e.isWatched) watched++;
         }

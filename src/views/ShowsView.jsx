@@ -9,6 +9,8 @@ import {
   showBadge,
   fmtDate,
   CommunityRatings,
+  isCanonSeason,
+  isAiredEpisode,
 } from "../ui.jsx";
 import { img, tvDetails, fetchAllSeasons, tvMeta, findByExternalId } from "../tmdb.js";
 
@@ -371,24 +373,32 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
 
       <div style={{ padding: "0 24px 24px" }}>
         <div className="seasons">
-          {s.seasons
+          {[...s.seasons]
             .filter((se) => se.episodes.length > 0)
+            .sort(
+              (a, b) =>
+                (isCanonSeason(a) ? 0 : 1) - (isCanonSeason(b) ? 0 : 1) ||
+                a.number - b.number
+            )
             .map((se) => {
+              const specials = !isCanonSeason(se);
               const wc = se.episodes.filter((e) => e.isWatched).length;
               const isOpen = openSeason === se.number;
               return (
-                <div className="season" key={se.number}>
+                <div className={`season ${specials ? "specials" : ""}`} key={se.number}>
                   <button
                     className="season-head"
                     onClick={() => setOpenSeason(isOpen ? null : se.number)}
                   >
-                    <span>{se.isSpecials ? "Specials" : `Season ${se.number}`}</span>
+                    <span>{specials ? "Specials" : `Season ${se.number}`}</span>
                     <span className="frac">
-                      {wc}/{se.episodes.length}
+                      {specials ? "extras · not tracked" : `${wc}/${se.episodes.length}`}
                     </span>
-                    <span className="mini-progress" style={{ flex: 1, maxWidth: 140 }}>
-                      <Progress value={wc} max={se.episodes.length} />
-                    </span>
+                    {!specials && (
+                      <span className="mini-progress" style={{ flex: 1, maxWidth: 140 }}>
+                        <Progress value={wc} max={se.episodes.length} />
+                      </span>
+                    )}
                     <span
                       className="mark-all"
                       onClick={(e) => {
@@ -417,7 +427,7 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
                   {isOpen && (
                     <div className="episodes">
                       {se.episodes.map((ep) => {
-                        const future = ep.airDate && ep.airDate > new Date().toISOString().slice(0, 10);
+                        const future = !isAiredEpisode(ep);
                         return (
                           <div
                             key={ep.number}
@@ -448,7 +458,11 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
                               {se.isSpecials ? "SP" : `E${String(ep.number).padStart(2, "0")}`}
                             </span>
                             <span className="name">{ep.name || `Episode ${ep.number}`}</span>
-                            {future && <span className="date">airs {fmtDate(ep.airDate)}</span>}
+                            {future && (
+                              <span className="date">
+                                {ep.airDate ? `airs ${fmtDate(ep.airDate)}` : "not aired yet"}
+                              </span>
+                            )}
                             {ep.isWatched && ep.watchedAt && (
                               <span className="date">{fmtDate(ep.watchedAt)}</span>
                             )}

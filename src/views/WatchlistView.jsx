@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Poster, Modal, Stars, fmtDate, CommunityRatings, isCanonEpisode } from "../ui.jsx";
+import {
+  Poster,
+  Modal,
+  Stars,
+  fmtDate,
+  CommunityRatings,
+  isCanonEpisode,
+  isAiredEpisode,
+} from "../ui.jsx";
 import { watchProviders } from "../tmdb.js";
 
 function isShowToWatch(s) {
@@ -84,7 +92,6 @@ export default function WatchlistView({ lib, query, update, notify }) {
   function confirmLog({ kind, uuid, date, rating }) {
     // Noon local time keeps the calendar day stable across timezones.
     const iso = new Date(`${date}T12:00:00`).toISOString();
-    const today = new Date().toISOString().slice(0, 10);
     let title = "";
     let episodes = 0;
     update((next) => {
@@ -103,8 +110,7 @@ export default function WatchlistView({ lib, query, update, notify }) {
         for (const se of s.seasons) {
           for (const e of se.episodes) {
             if (!isCanonEpisode(se, e)) continue;
-            const aired = !e.airDate || e.airDate <= today;
-            if (aired && !e.isWatched) {
+            if (isAiredEpisode(e) && !e.isWatched) {
               e.isWatched = true;
               e.watchedAt = iso;
               // Logging a whole series at once is history, not one sitting.
@@ -237,10 +243,7 @@ function LogWatchModal({ kind, item, onConfirm, onClose }) {
           (n, se) =>
             n +
             se.episodes.filter(
-              (e) =>
-                isCanonEpisode(se, e) &&
-                !e.isWatched &&
-                (!e.airDate || e.airDate <= today)
+              (e) => isCanonEpisode(se, e) && isAiredEpisode(e) && !e.isWatched
             ).length,
           0
         )

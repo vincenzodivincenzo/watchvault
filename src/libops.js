@@ -1,7 +1,7 @@
 // Shared library operations: adding titles from TMDB (used by search & discover).
 
 import { movieDetails, tvDetails, fetchAllSeasons, movieMeta, tvMeta } from "./tmdb.js";
-import { isCanonEpisode } from "./ui.jsx";
+import { isCanonEpisode, isAiredEpisode } from "./ui.jsx";
 
 export async function addMovieFromTmdb(update, key, tmdbId) {
   const det = await movieDetails(key, tmdbId);
@@ -52,7 +52,6 @@ export async function addShowFromTmdb(update, key, tmdbId) {
 // optional star rating. For shows this logs every aired episode as bulk
 // history so time charts stay clean.
 export function markItemWatched(update, kind, uuid, { dateIso, rating }) {
-  const today = new Date().toISOString().slice(0, 10);
   update((next) => {
     if (kind === "movie") {
       const m = next.movies.find((x) => x.uuid === uuid);
@@ -67,8 +66,7 @@ export function markItemWatched(update, kind, uuid, { dateIso, rating }) {
       for (const se of s.seasons) {
         for (const e of se.episodes) {
           if (!isCanonEpisode(se, e)) continue;
-          const aired = !e.airDate || e.airDate <= today;
-          if (aired && !e.isWatched) {
+          if (isAiredEpisode(e) && !e.isWatched) {
             e.isWatched = true;
             e.watchedAt = dateIso;
             e.bulk = true;
