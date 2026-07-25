@@ -13,7 +13,7 @@ import WatchlistView from "./views/WatchlistView.jsx";
 import { VaultMark, Icon } from "./ui.jsx";
 
 const NAV = [
-  { id: "discover", label: "Discover", icon: "sparkles" },
+  { id: "discover", label: "Home", icon: "home" },
   { id: "search", label: "Search", icon: "search" },
   { id: "movies", label: "Movies", icon: "film" },
   { id: "shows", label: "TV Shows", icon: "tv" },

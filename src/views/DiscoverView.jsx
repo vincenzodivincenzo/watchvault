@@ -406,7 +406,7 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
     return (
       <div className="welcome" style={{ height: "auto", padding: "60px 24px" }}>
         <VaultMark size={76} />
-        <h1>Discover</h1>
+        <h1>Home</h1>
         <p>
           Your personal home feed — what to continue, what's new, and what to
           watch next. Add your free TMDB API key in Settings to turn it on.

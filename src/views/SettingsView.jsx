@@ -159,7 +159,7 @@ export default function SettingsView({ lib, update, onImport, notify }) {
         {(lib.notInterested?.length || 0) > 0 && (
           <div style={{ marginTop: 12 }}>
             <p className="hint">
-              Discover “not interested” list: {lib.notInterested.length}{" "}
+              Home feed “not interested” list: {lib.notInterested.length}{" "}
               title{lib.notInterested.length === 1 ? "" : "s"} (
               {lib.notInterested
                 .slice(-3)

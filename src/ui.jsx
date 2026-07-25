@@ -42,6 +42,13 @@ export function VaultMark({ size = 26 }) {
 
 // Minimal stroke icons for navigation — one voice instead of emoji.
 const ICON_PATHS = {
+  home: (
+    <>
+      <path d="M3 10.5L12 3l9 7.5" />
+      <path d="M5 9.5V21h14V9.5" />
+      <path d="M10 21v-6h4v6" />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="7" />
