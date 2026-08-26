@@ -1,0 +1,82 @@
+/* ============================================================
+   Tailwind, wired to WatchVault's existing brand tokens.
+
+   Preflight is deliberately NOT imported. styles.css is 1,480 lines of
+   working CSS and Tailwind's reset would fight all of it; this trial adds
+   utilities alongside it rather than re-founding the cascade.
+
+   Every --color-* below points at a live var from styles.css rather than a
+   literal, so BRAND.md stays the single source of truth and switching
+   [data-theme] keeps working for Tailwind utilities and shadcn components
+   alike. No hex value is restated here on purpose.
+   ============================================================ */
+/* Layer order is the whole trick. styles.css is imported INTO a layer here
+   rather than loaded beside Tailwind, because unlayered CSS beats every
+   layered rule regardless of specificity or source order. Left unlayered, its
+   global `button { background: none; border: none }` reset silently wiped the
+   chrome off every shadcn Button and no utility could ever win. Ordering it
+   between theme and utilities lets existing styles override the theme while
+   utilities override existing styles, which is what migrating incrementally
+   requires. */
+@layer theme, base, app, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "./styles.css" layer(app);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Not importing the full "tailwindcss" entry means source detection is not
+   configured for us, so declare it. */
+@source "./";
+
+@theme inline {
+  /* WatchVault's own names, usable as bg-page, text-ink, border-hairline… */
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+  --color-hairline: var(--hairline);
+  /* Brand amber lives under "marquee", NOT "accent". shadcn uses --accent to
+     mean a subtle hover surface, so mapping Marquee Amber onto that name makes
+     every ghost and outline button hover bright amber. The names collide; the
+     shadcn meaning wins for --accent because its components consume it. */
+  --color-marquee: var(--accent);
+  --color-marquee-hover: var(--accent-hover);
+  --color-marquee-dim: var(--accent-dim);
+  --color-marquee-ink: var(--accent-ink);
+  --color-good: var(--good);
+  --color-danger: var(--danger);
+  --color-star: var(--star);
+
+  /* The semantic names shadcn components ship expecting, mapped onto the
+     brand so an unmodified shadcn component renders as WatchVault. */
+  --color-background: var(--surface);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--ink-muted);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--accent-ink);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-display);
+  --font-mono: var(--font-mono);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}

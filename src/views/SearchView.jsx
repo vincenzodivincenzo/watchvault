@@ -227,7 +227,7 @@ function ResultDetail({ r, lib, update, notify, onClose }) {
   ].filter(Boolean);
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} title={r.title || r.name}>
       <div
         className="backdrop"
         style={backdrop ? { backgroundImage: `url(${backdrop})` } : { height: 90 }}

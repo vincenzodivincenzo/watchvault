@@ -153,7 +153,7 @@ function MovieDetail({ movie, patch, onRemove, onClose }) {
   const m = movie;
   const backdrop = m.meta?.backdrop ? img(m.meta.backdrop, "w780") : null;
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} title={movie.title}>
       <div
         className="backdrop"
         style={backdrop ? { backgroundImage: `url(${backdrop})` } : { height: 90 }}

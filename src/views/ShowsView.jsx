@@ -304,7 +304,7 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
   }
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} title={show.title}>
       <div
         className="backdrop"
         style={backdrop ? { backgroundImage: `url(${backdrop})` } : { height: 90 }}

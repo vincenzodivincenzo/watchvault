@@ -661,7 +661,7 @@ function RecDetail({ rec, tmdbKey, adding, onAdd, onDismiss, onClose }) {
   const busy = adding === `${rec.kind}-${rec.id}`;
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} title={rec.title || rec.name}>
       <div
         className="backdrop"
         style={backdrop ? { backgroundImage: `url(${backdrop})` } : { height: 90 }}

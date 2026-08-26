@@ -250,7 +250,7 @@ function LogWatchModal({ kind, item, onConfirm, onClose }) {
       : 0;
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} title={`Log ${item.title} as watched`}>
       <div className="body" style={{ marginTop: 0, paddingTop: 24 }}>
         <div className="poster-col">
           <Poster item={item} />

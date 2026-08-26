@@ -6,7 +6,8 @@ import "@fontsource-variable/fraunces";
 import "@fontsource-variable/fraunces/wght-italic.css";
 import "@fontsource-variable/instrument-sans";
 import "@fontsource-variable/jetbrains-mono";
-import "./styles.css";
+// tailwind.css imports styles.css into a cascade layer; see the note there.
+import "./tailwind.css";
 
 // Default before the library (and its theme setting) loads.
 document.documentElement.dataset.theme = "light";

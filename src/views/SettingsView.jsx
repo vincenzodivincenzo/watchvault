@@ -3,6 +3,8 @@ import { testKey } from "../tmdb.js";
 import { testOmdbKey } from "../omdb.js";
 import { exportBackup, getLibraryPath } from "../store.js";
 import { detectBulkFlags, clearBulkFlags, countBulkFlags } from "../bulk.js";
+import { Sun, Moon, Monitor } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const COUNTRIES = [
   ["IT", "Italy"], ["US", "United States"], ["GB", "United Kingdom"],
@@ -48,20 +50,25 @@ export default function SettingsView({ lib, update, onImport, notify }) {
     <div className="settings">
       <div className="panel">
         <h3>Appearance</h3>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="flex gap-2">
           {[
-            { id: "light", label: "☀️ Light" },
-            { id: "dark", label: "🌙 Dark" },
-            { id: "system", label: "💻 System" },
-          ].map((t) => (
-            <button
-              key={t.id}
-              className={`btn ${(lib.settings?.theme || "light") === t.id ? "primary" : ""}`}
-              onClick={() => update((next) => (next.settings.theme = t.id))}
-            >
-              {t.label}
-            </button>
-          ))}
+            { id: "light", label: "Light", Icon: Sun },
+            { id: "dark", label: "Dark", Icon: Moon },
+            { id: "system", label: "System", Icon: Monitor },
+          ].map((t) => {
+            const active = (lib.settings?.theme || "light") === t.id;
+            return (
+              <Button
+                key={t.id}
+                variant={active ? "default" : "outline"}
+                aria-pressed={active}
+                onClick={() => update((next) => (next.settings.theme = t.id))}
+              >
+                <t.Icon aria-hidden="true" />
+                {t.label}
+              </Button>
+            );
+          })}
         </div>
       </div>
 

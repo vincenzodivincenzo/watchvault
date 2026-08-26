@@ -1,4 +1,5 @@
 import React from "react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { img } from "./tmdb.js";
 
 // The in-app brand mark — the same vault-dial/film-reel as the macOS icon.
@@ -235,32 +236,34 @@ export function Stars({ value, onChange }) {
   );
 }
 
-export function Modal({ onClose, children, className = "" }) {
-  // Escape closes any dialog, like every native Mac sheet.
-  React.useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+// Radix owns the behaviour; styles.css still owns every pixel. The hand-rolled
+// version handled Escape and click-outside and nothing else: no focus trap, no
+// focus restore on close, no role, no aria-modal, no inert background, no
+// scroll lock. Those are the parts that are tedious to write and easy to omit
+// silently, which is exactly why they were omitted.
+//
+// `title` is required for an accessible dialog. It is rendered visually hidden
+// because every one of these modals already shows the title in its own layout.
+export function Modal({ onClose, children, className = "", title }) {
   return (
-    <div
-      className="overlay"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className={`modal ${className}`}>
-        <button className="close" onClick={onClose} title="Close">
-          ✕
-        </button>
-        {children}
-      </div>
-    </div>
+    <DialogPrimitive.Root open onOpenChange={(open) => !open && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="overlay">
+          <DialogPrimitive.Content
+            className={`modal ${className}`}
+            aria-describedby={undefined}
+          >
+            <DialogPrimitive.Title className="sr-only">
+              {title || "Details"}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Close className="close" aria-label="Close">
+              ✕
+            </DialogPrimitive.Close>
+            {children}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Overlay>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
