@@ -21,13 +21,27 @@ export function emptyLibrary() {
   };
 }
 
+// TV Time exported a per-show `status` string (up_to_date | continuing |
+// stopped | not_started_yet), but only "stopped" is ever read: every other
+// progress question is answered from the episodes themselves, via showState().
+// The imported values were never recomputed, so marking a show watched in bulk
+// left `status` contradicting its own episode data. Keep "stopped", which the
+// user sets by hand, and drop the rest wherever a library enters the app.
+export function normalizeLibrary(lib) {
+  if (!lib || !Array.isArray(lib.shows)) return lib;
+  for (const s of lib.shows) {
+    if (s.status && s.status !== "stopped") s.status = null;
+  }
+  return lib;
+}
+
 export async function loadLibrary() {
   if (isTauri()) {
     const raw = await invoke("load_library");
-    return raw ? JSON.parse(raw) : null;
+    return raw ? normalizeLibrary(JSON.parse(raw)) : null;
   }
   const raw = localStorage.getItem(LS_KEY);
-  return raw ? JSON.parse(raw) : null;
+  return raw ? normalizeLibrary(JSON.parse(raw)) : null;
 }
 
 export async function saveLibrary(lib) {

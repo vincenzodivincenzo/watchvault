@@ -1,6 +1,8 @@
 // Converts TV Time export JSON (movies / series) into the WatchVault
 // library format, and merges imports into an existing library.
 
+import { normalizeLibrary } from "./store.js";
+
 function movieFromTvTime(m) {
   return {
     uuid: m.uuid,
@@ -24,7 +26,9 @@ function showFromTvTime(s) {
     title: s.title,
     imdb: s.id?.imdb || null,
     tvdb: s.id?.tvdb || null,
-    status: s.status || null, // up_to_date | continuing | stopped | not_started_yet
+    // Only "stopped" is meaningful downstream; the other TV Time values go
+    // stale the moment episodes change. See normalizeLibrary in store.js.
+    status: s.status === "stopped" ? "stopped" : null,
     isFavorite: !!s.is_favorite,
     rating: null,
     createdAt: s.created_at || null,
@@ -166,7 +170,7 @@ export function importTvTimeFiles(files, base) {
       report.skippedFiles.push(`${f.name}: not a recognized TV Time export`);
     }
   }
-  return { library: lib, report };
+  return { library: normalizeLibrary(lib), report };
 }
 
 function importTvTimeBackup(backup, lib, movieIndex, showIndex, report) {
