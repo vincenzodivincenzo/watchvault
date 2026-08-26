@@ -27,7 +27,7 @@ grays anywhere.
 | Muted | `#8f8778` | labels, hints |
 | **Marquee Amber** | `#e89b2e` | THE brand accent: primary buttons, active states, links |
 | Amber ink | `#201503` | text **on** amber (never white on amber) |
-| Velvet Red | `#e0655f` | danger, ENDED tag family |
+| Velvet Red | `#e0655f` | danger and destructive actions only |
 | Reel Green | `#3fa35c` | success, watched |
 | Star Gold | `#eda100` | rating stars only |
 
@@ -59,7 +59,7 @@ Calendar heat ramp (sequential amber, low→high):
 dark `#322b25 → #6b4a08 → #98690a → #cc7f0d → #f0aa3e`;
 light `#ece4d3 → #f0d9a4 → #e3b45c → #c07508 → #7d4e04`.
 
-**Rules:** amber = interaction, green = state "watched", red = destructive/ended,
+**Rules:** amber = interaction, green = state "watched", red = destructive,
 gold = stars. Never use amber for success, red for a data series, or star gold
 for buttons. Text always wears ink tokens, never series colors.
 
@@ -82,6 +82,9 @@ the same three come from Google Fonts.
   only soft warm ones — dark mode separates by surface steps, not shadows.
 - Posters are sacred: 2:3, never cropped, never tinted. Badges sit on top with
   blur, 6px radius: state top-left, ❤️ top-right, ENDED bottom-right.
+  **ENDED wears the neutral scrim, never red.** A finished series is the
+  ordinary condition of most of the library, not a warning; on a shelf of
+  ended shows a red tag on each one is noise that outranks the posters.
 - Active nav carries a 2.5px amber left indicator — the "projector beam".
 
 ## 4. Voice

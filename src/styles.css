@@ -452,12 +452,16 @@ select:focus {
   color: #201503;
 }
 
+/* A finished series is metadata, not an alert. Same neutral scrim as the
+   favourite badge, dimmed a step further so it reads under the poster
+   rather than over it. Red stays reserved for destructive actions. */
 .badge.ended {
   top: auto;
   bottom: 8px;
   right: 8px;
-  background: #d03b3b;
-  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
   letter-spacing: 0.05em;
   font-size: 9.5px;
 }
