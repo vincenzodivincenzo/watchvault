@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Poster, Modal, Stars, fmtDate, movieBadge, CommunityRatings } from "../ui.jsx";
+import { Poster, Modal, Stars, fmtDate, movieBadge, CommunityRatings, WatchDate } from "../ui.jsx";
 import { img } from "../tmdb.js";
 
 const SORTS = [
@@ -168,11 +168,24 @@ function MovieDetail({ movie, patch, onRemove, onClose }) {
             {[
               m.year,
               m.meta?.runtime ? `${m.meta.runtime} min` : null,
-              m.isWatched && m.watchedAt ? `Watched ${fmtDate(m.watchedAt)}` : null,
+              m.isWatched && m.watchedAt ? (
+                <React.Fragment key="watched">
+                  Watched{" "}
+                  <WatchDate
+                    iso={m.watchedAt}
+                    onChange={(iso) => patch(m.uuid, (x) => (x.watchedAt = iso))}
+                  />
+                </React.Fragment>
+              ) : null,
               m.rewatchCount ? `${m.rewatchCount} rewatch${m.rewatchCount > 1 ? "es" : ""}` : null,
             ]
               .filter(Boolean)
-              .join(" · ")}
+              .map((part, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && " · "}
+                  {part}
+                </React.Fragment>
+              ))}
           </div>
           {m.meta?.genres?.length ? (
             <div className="genres">

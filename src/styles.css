@@ -733,6 +733,44 @@ select:focus {
   padding: 4px 0;
 }
 
+/* Editable watch date. Reads as the plain mono text it replaces until you
+   hover or focus it, so rows stay quiet while the date stays clickable. */
+.watch-date {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 1px 5px;
+  cursor: pointer;
+  width: auto;
+}
+
+.watch-date:hover {
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.watch-date:focus,
+.watch-date:focus-visible {
+  color: var(--ink);
+  background: var(--surface-2);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.watch-date::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+  cursor: pointer;
+}
+
+.watch-date:hover::-webkit-calendar-picker-indicator,
+.watch-date:focus::-webkit-calendar-picker-indicator {
+  opacity: 0.9;
+}
+
 .episode {
   display: flex;
   align-items: center;

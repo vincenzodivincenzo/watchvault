@@ -291,6 +291,67 @@ export function CommunityRatings({ omdb }) {
   );
 }
 
+// Stats bucket watches by the first ten characters of the raw ISO string
+// (see bulk.js), so a date must be stored as the exact calendar day the user
+// picked. Rebuilding a Date from "YYYY-MM-DD" and calling toISOString() shifts
+// that day by one in any timezone behind UTC, which would silently move
+// watches between months in the charts. Keep the original time of day when
+// there is one, and otherwise pin to midday so nothing can drift.
+export function isoOnDay(day, prevIso) {
+  const time = prevIso && prevIso.length > 10 ? prevIso.slice(10) : "T12:00:00.000Z";
+  return `${day}${time}`;
+}
+
+// An inline, editable watch date. At rest it is the same "Aug 1, 2026" text
+// the row always showed; a native date input only replaces it while editing,
+// because the input renders in the OS locale format (01/08/2026) and that is
+// not how dates read anywhere else in the app.
+export function WatchDate({ iso, onChange, label = "Date watched" }) {
+  const [editing, setEditing] = React.useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (!editing) {
+    return (
+      <button
+        className="watch-date"
+        title={`${label} — click to change`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+      >
+        {fmtDate(iso)}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      className="watch-date editing"
+      type="date"
+      autoFocus
+      defaultValue={iso ? iso.slice(0, 10) : ""}
+      max={today}
+      aria-label={label}
+      onClick={(e) => e.stopPropagation()}
+      onFocus={(e) => e.target.showPicker?.()}
+      onBlur={() => setEditing(false)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation(); // don't let Escape close the dialog too
+          setEditing(false);
+        }
+      }}
+      onChange={(e) => {
+        if (e.target.value) {
+          onChange(isoOnDay(e.target.value, iso));
+          setEditing(false);
+        }
+      }}
+    />
+  );
+}
+
 export function fmtDate(iso) {
   if (!iso) return null;
   try {

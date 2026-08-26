@@ -8,6 +8,7 @@ import {
   showState,
   showBadge,
   fmtDate,
+  WatchDate,
   CommunityRatings,
   isCanonSeason,
   isAiredEpisode,
@@ -464,7 +465,24 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
                               </span>
                             )}
                             {ep.isWatched && ep.watchedAt && (
-                              <span className="date">{fmtDate(ep.watchedAt)}</span>
+                              <WatchDate
+                                iso={ep.watchedAt}
+                                label={`Date watched, episode ${ep.number}`}
+                                onChange={(iso) =>
+                                  patch(s.uuid, (x) => {
+                                    const target = x.seasons.find(
+                                      (q) => q.number === se.number
+                                    );
+                                    const e2 = target.episodes.find(
+                                      (q) => q.number === ep.number
+                                    );
+                                    e2.watchedAt = iso;
+                                    // A hand-set date is a real logged event,
+                                    // so it should count in the time charts.
+                                    delete e2.bulk;
+                                  })
+                                }
+                              />
                             )}
                           </div>
                         );
