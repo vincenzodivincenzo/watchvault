@@ -191,6 +191,7 @@ select:focus {
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -206,10 +207,41 @@ select:focus {
   background: var(--surface-2);
 }
 
+/* The projector beam. An inset box-shadow follows the 8px radius, so at 2.5px
+   it renders as a tapering arc around the corners rather than a bar. Draw it
+   as its own element in the sidebar gutter instead: straight, vertically
+   inset, and never touching the pill's rounded edge. */
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
 .nav-item.active {
   background: var(--surface-3);
   color: var(--ink);
-  box-shadow: inset 2.5px 0 0 var(--accent);
+}
+
+/* Light thrown from the beam: brightest at the left edge, gone by two thirds.
+   Dropped wholesale on engines without color-mix, leaving the flat fill above. */
+.nav-item.active {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 20%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 7%, transparent) 34%,
+    transparent 68%
+  );
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .nav-item .icon {

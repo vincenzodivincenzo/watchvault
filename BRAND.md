@@ -85,7 +85,11 @@ the same three come from Google Fonts.
   **ENDED wears the neutral scrim, never red.** A finished series is the
   ordinary condition of most of the library, not a warning; on a shelf of
   ended shows a red tag on each one is noise that outranks the posters.
-- Active nav carries a 2.5px amber left indicator — the "projector beam".
+- Active nav carries a 3px amber beam in the sidebar gutter, vertically
+  centred and inset, plus a warm amber falloff across the left third of the
+  pill — the "projector beam". **Never draw it as an inset box-shadow:** the
+  shadow follows the pill's 8px radius and renders as a tapering arc around
+  the corners instead of a bar.
 
 ## 4. Voice
 
