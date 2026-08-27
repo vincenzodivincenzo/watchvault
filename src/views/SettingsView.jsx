@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { testKey } from "../tmdb.js";
 import { testOmdbKey } from "../omdb.js";
-import { exportBackup, getLibraryPath } from "../store.js";
+import { exportBackup, getLibraryPath, pickCsvFiles } from "../store.js";
+import { importGoodreadsCsv } from "../books.js";
 import { detectBulkFlags, clearBulkFlags, countBulkFlags } from "../bulk.js";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,27 @@ export default function SettingsView({ lib, update, onImport, notify }) {
     } catch (e) {
       setKeyState(`Key check failed: ${String(e).slice(0, 140)}`);
     }
+  }
+
+  // Goodreads has had no API since 2020, so the CSV export is the only route in.
+  async function importGoodreads() {
+    const files = await pickCsvFiles();
+    if (!files.length) return;
+    let report = { added: 0, merged: 0, skipped: 0 };
+    update((next) => {
+      if (!next.books) next.books = [];
+      for (const f of files) {
+        const r = importGoodreadsCsv(f.text, next.books);
+        next.books = r.books;
+        report.added += r.report.added;
+        report.merged += r.report.merged;
+        report.skipped += r.report.skipped;
+      }
+    });
+    notify(
+      `${report.added} books added, ${report.merged} merged` +
+        (report.skipped ? `, ${report.skipped} skipped` : "")
+    );
   }
 
   const refreshable =
@@ -157,11 +179,20 @@ export default function SettingsView({ lib, update, onImport, notify }) {
           <button className="btn" onClick={onImport}>
             ⬆︎ Import TV Time export / backup…
           </button>
+          <button className="btn" onClick={importGoodreads}>
+            ⬆︎ Import Goodreads CSV…
+          </button>
         </div>
         <p className="hint" style={{ marginTop: 10 }}>
           Import understands TV Time’s <code>tvtime-movies-*.json</code> and{" "}
           <code>tvtime-series-*.json</code> exports as well as WatchVault
           backups. Imports merge — nothing is ever un-watched.
+        </p>
+        <p className="hint">
+          Books come from Goodreads → My Books → Import and Export → Export
+          Library, which produces a <code>goodreads_library_export.csv</code>.
+          Shelves, ratings, reviews, read dates and re-read counts all come
+          across; covers are fetched from Open Library afterwards.
         </p>
         {(lib.notInterested?.length || 0) > 0 && (
           <div style={{ marginTop: 12 }}>

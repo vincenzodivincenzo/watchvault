@@ -10,13 +10,16 @@ import SettingsView from "./views/SettingsView.jsx";
 import SearchView from "./views/SearchView.jsx";
 import DiscoverView from "./views/DiscoverView.jsx";
 import WatchlistView from "./views/WatchlistView.jsx";
+import BooksView from "./views/BooksView.jsx";
 import { VaultMark, Icon, nextEpisode, epCode } from "./ui.jsx";
 import CommandPalette from "./CommandPalette.jsx";
+import { enrichBooks, needsBookMeta } from "./books.js";
 
 const NAV = [
   { id: "discover", label: "Home", icon: "home" },
   { id: "search", label: "Search", icon: "search" },
   { id: "movies", label: "Movies", icon: "film" },
+  { id: "books", label: "Books", icon: "book" },
   { id: "shows", label: "TV Shows", icon: "tv" },
   { id: "watchlist", label: "To Watch", icon: "bookmark" },
   { id: "stats", label: "Stats", icon: "chart" },
@@ -121,6 +124,37 @@ export default function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tmdbKey, pendingMeta === 0, lib === null]);
+
+  // Open Library covers and blurbs for books. No key needed, so unlike the
+  // TMDB and OMDb passes this one just runs.
+  const pendingBooks = lib?.books ? needsBookMeta(lib.books) : 0;
+  const bookRun = useRef(null);
+  const patchBook = useCallback((uuid, patch) => {
+    setLib((prev) => ({
+      ...prev,
+      books: (prev.books || []).map((b) =>
+        b.uuid === uuid ? { ...b, ...patch } : b
+      ),
+    }));
+  }, []);
+  useEffect(() => {
+    if (!lib?.books?.length || pendingBooks === 0 || bookRun.current) return;
+    const controller = new AbortController();
+    bookRun.current = controller;
+    enrichBooks(lib.books, {
+      signal: controller.signal,
+      onItem: patchBook,
+    })
+      .catch((e) => notify(`Open Library error: ${String(e).slice(0, 120)}`))
+      .finally(() => {
+        if (bookRun.current === controller) bookRun.current = null;
+      });
+    return () => {
+      controller.abort();
+      if (bookRun.current === controller) bookRun.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBooks === 0, lib === null]);
 
   // Community ratings (OMDb) enrichment — runs quietly once a key is set.
   const omdbKey = lib?.settings?.omdbKey || "";
@@ -266,6 +300,7 @@ export default function App() {
   const counts = {
     movies: lib.movies.length,
     shows: lib.shows.length,
+    books: (lib.books || []).length,
     watchlist:
       lib.movies.filter((m) => !m.isWatched).length +
       lib.shows.filter(
@@ -344,6 +379,9 @@ export default function App() {
               pendingOpen={pendingMovie}
               onPendingConsumed={() => setPendingMovie(null)}
             />
+          )}
+          {view === "books" && (
+            <BooksView lib={lib} query={query} update={update} />
           )}
           {view === "shows" && (
             <ShowsView

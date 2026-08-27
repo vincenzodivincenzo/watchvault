@@ -91,6 +91,39 @@ export async function pickImportFiles() {
   });
 }
 
+// Same picker as the TV Time import, filtered to CSV for the Goodreads export.
+export async function pickCsvFiles() {
+  if (isTauri()) {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const paths = await open({
+      multiple: true,
+      title: "Select your Goodreads CSV export",
+      filters: [{ name: "Goodreads export", extensions: ["csv"] }],
+    });
+    if (!paths) return [];
+    const list = Array.isArray(paths) ? paths : [paths];
+    const out = [];
+    for (const p of list) {
+      const text = await invoke("read_text_file", { path: p });
+      out.push({ name: p.split("/").pop(), text });
+    }
+    return out;
+  }
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv,text/csv";
+    input.multiple = true;
+    input.onchange = async () => {
+      const files = [...(input.files || [])];
+      const out = [];
+      for (const f of files) out.push({ name: f.name, text: await f.text() });
+      resolve(out);
+    };
+    input.click();
+  });
+}
+
 export async function exportBackup(lib) {
   const json = JSON.stringify(lib, null, 2);
   const filename = `watchvault-backup-${new Date().toISOString().slice(0, 10)}.json`;
