@@ -10,7 +10,8 @@ import SettingsView from "./views/SettingsView.jsx";
 import SearchView from "./views/SearchView.jsx";
 import DiscoverView from "./views/DiscoverView.jsx";
 import WatchlistView from "./views/WatchlistView.jsx";
-import { VaultMark, Icon } from "./ui.jsx";
+import { VaultMark, Icon, nextEpisode, epCode } from "./ui.jsx";
+import CommandPalette from "./CommandPalette.jsx";
 
 const NAV = [
   { id: "discover", label: "Home", icon: "home" },
@@ -151,15 +152,50 @@ export default function App() {
     setView("shows");
   }, []);
 
+  // The palette jumps straight to a film's detail page too.
+  const [pendingMovie, setPendingMovie] = useState(null);
+  const openMovieFromPalette = useCallback((uuid) => {
+    setPendingMovie(uuid);
+    setView("movies");
+  }, []);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Log the next aired episode of a show without opening anything.
+  const markNextEpisode = useCallback(
+    (uuid) => {
+      let logged = null;
+      update((next) => {
+        const s = next.shows.find((x) => x.uuid === uuid);
+        if (!s) return;
+        const nxt = nextEpisode(s);
+        if (!nxt) return;
+        const se = s.seasons.find((q) => q.number === nxt.season);
+        const ep = se.episodes.find((q) => q.number === nxt.episode);
+        ep.isWatched = true;
+        ep.watchedAt = new Date().toISOString();
+        delete ep.bulk;
+        logged = `${s.title} ${epCode(nxt)}`;
+      });
+      if (logged) notify(`✓ ${logged} logged`);
+    },
+    [update, notify]
+  );
+
   const goToSearch = useCallback(() => {
     setView("search");
     setTimeout(() => window.dispatchEvent(new Event("wv-focus-search")), 60);
   }, []);
 
-  // ⌘K / ⌘F from anywhere → the Search page, input focused.
+  // ⌘K opens the palette. ⌘F keeps its narrower old meaning, the TMDB search
+  // page, because that is muscle memory for adding a title.
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "f")) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      } else if (e.key === "f") {
         e.preventDefault();
         goToSearch();
       }
@@ -301,7 +337,13 @@ export default function App() {
             <SearchView lib={lib} update={update} notify={notify} />
           )}
           {view === "movies" && (
-            <MoviesView lib={lib} query={query} update={update} />
+            <MoviesView
+              lib={lib}
+              query={query}
+              update={update}
+              pendingOpen={pendingMovie}
+              onPendingConsumed={() => setPendingMovie(null)}
+            />
           )}
           {view === "shows" && (
             <ShowsView
@@ -335,6 +377,17 @@ export default function App() {
           )}
         </div>
       </main>
+
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        lib={lib}
+        setView={setView}
+        openShow={openShowFromHome}
+        openMovie={openMovieFromPalette}
+        markNext={markNextEpisode}
+        onSearchTmdb={goToSearch}
+      />
 
       {toast && <div className="toast">{toast}</div>}
     </div>

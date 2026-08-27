@@ -7,7 +7,7 @@ import {
   showState,
   isCanonEpisode,
   isAiredEpisode,
-} from "../ui.jsx";
+ nextEpisode, epCode,} from "../ui.jsx";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
   addMovieFromTmdb,
@@ -61,19 +61,6 @@ function lastWatchedAt(s, { realOnly = false } = {}) {
       )
         last = e.watchedAt;
   return last;
-}
-
-function nextEpisode(s) {
-  const seasons = [...s.seasons].sort((a, b) => a.number - b.number);
-  for (const se of seasons)
-    for (const e of [...se.episodes].sort((a, b) => a.number - b.number))
-      if (isCanonEpisode(se, e) && isAiredEpisode(e) && !e.isWatched)
-        return { season: se.number, episode: e.number, name: e.name };
-  return null;
-}
-
-function epCode(next) {
-  return `S${String(next.season).padStart(2, "0")}E${String(next.episode).padStart(2, "0")}`;
 }
 
 function movieSeedPool(lib) {

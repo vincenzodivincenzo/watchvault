@@ -12,12 +12,20 @@ const SORTS = [
   { id: "year_asc", label: "Year (oldest)" },
 ];
 
-export default function MoviesView({ lib, query, update }) {
+export default function MoviesView({ lib, query, update, pendingOpen, onPendingConsumed }) {
   // Filter & sort choices are remembered in the library file.
   const prefs = lib.settings?.viewPrefs?.movies || {};
   const [filter, setFilterState] = useState(prefs.filter || "all");
   const [sort, setSortState] = useState(prefs.sort || "watched_desc");
   const [openUuid, setOpenUuid] = useState(null);
+
+  // The command palette can jump straight to a film's detail page.
+  useEffect(() => {
+    if (pendingOpen) {
+      setOpenUuid(pendingOpen);
+      onPendingConsumed?.();
+    }
+  }, [pendingOpen, onPendingConsumed]);
 
   const remember = (patch) =>
     update((next) => {
@@ -121,7 +129,7 @@ export default function MoviesView({ lib, query, update }) {
       {movies.length === 0 ? (
         <div className="empty">No movies match this filter.</div>
       ) : (
-        <div className="grid">
+        <div className="poster-grid">
           {movies.map((m) => (
             <div className="card" key={m.uuid} onClick={() => setOpenUuid(m.uuid)}>
               <Poster item={m} badge={movieBadge(m)} />

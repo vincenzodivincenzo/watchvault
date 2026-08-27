@@ -173,7 +173,7 @@ function Section({ title, items, kind, onLog, onRemove }) {
   return (
     <div style={{ marginBottom: 26 }}>
       <h3 style={{ margin: "6px 0 14px", fontSize: 15 }}>{title}</h3>
-      <div className="grid">
+      <div className="poster-grid">
         {items.map((it) => (
           <div className="card" key={it.uuid} onClick={() => onLog(it.uuid)}>
             <Poster item={it} />

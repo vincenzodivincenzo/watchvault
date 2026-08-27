@@ -226,7 +226,7 @@ export default function ShowsView({
       {shows.length === 0 ? (
         <div className="empty">No shows match this filter.</div>
       ) : (
-        <div className="grid">
+        <div className="poster-grid">
           {shows.map((s) => {
             const { watched, total } = showProgress(s);
             return (

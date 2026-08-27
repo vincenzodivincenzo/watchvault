@@ -398,7 +398,11 @@ select:focus {
 
 /* ---------- Poster grid ---------- */
 
-.grid {
+/* Named poster-grid, not grid: "grid" is also a Tailwind utility, and any
+   component using that utility would otherwise inherit this poster layout.
+   That is exactly what happened to the command palette dialog, which came out
+   three columns wide. App classes must not collide with utility names. */
+.poster-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
   gap: 16px;
@@ -1515,4 +1519,49 @@ select:focus {
 
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ---------- Command palette ---------- */
+/* shadcn's Command ships its own layout; these rules only carry the brand's
+   type roles into it — display face for titles is wrong here, this is a list
+   you scan, so titles stay UI face and metadata stays mono. */
+.wv-pal-title {
+  color: var(--ink);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wv-pal-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-muted);
+  flex: none;
+}
+
+/* Long episode names must not squeeze the title out of the row: both sides
+   shrink and truncate, and the title keeps priority. */
+.wv-pal-title {
+  flex: 1 1 auto;
+  min-width: 7ch;
+}
+
+.wv-pal-sub {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The action hint is only true for the row you are actually on. */
+.wv-pal-hint {
+  opacity: 0;
+}
+
+[cmdk-item][data-selected="true"] .wv-pal-hint {
+  opacity: 1;
 }

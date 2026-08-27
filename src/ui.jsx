@@ -297,6 +297,21 @@ export function CommunityRatings({ omdb }) {
 // that day by one in any timezone behind UTC, which would silently move
 // watches between months in the charts. Keep the original time of day when
 // there is one, and otherwise pin to midday so nothing can drift.
+// The next aired, canonical, unwatched episode of a show. Shared by Home and
+// the command palette so "next" can never mean two different things.
+export function nextEpisode(s) {
+  const seasons = [...s.seasons].sort((a, b) => a.number - b.number);
+  for (const se of seasons)
+    for (const e of [...se.episodes].sort((a, b) => a.number - b.number))
+      if (isCanonEpisode(se, e) && isAiredEpisode(e) && !e.isWatched)
+        return { season: se.number, episode: e.number, name: e.name };
+  return null;
+}
+
+export function epCode(next) {
+  return `S${String(next.season).padStart(2, "0")}E${String(next.episode).padStart(2, "0")}`;
+}
+
 export function isoOnDay(day, prevIso) {
   const time = prevIso && prevIso.length > 10 ? prevIso.slice(10) : "T12:00:00.000Z";
   return `${day}${time}`;
