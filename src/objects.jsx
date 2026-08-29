@@ -2,128 +2,144 @@ import React from "react";
 import { coverUrl } from "./books.js";
 import { inProgressEpisode, podcastProgress } from "./podcasts.js";
 
-// Analog objects.
+// Analog objects, built from ONE primitive.
 //
-// The principle: an item is drawn as the physical artifact its content would
-// have had, and its state is expressed through that object's physical
-// properties rather than through badges bolted on top.
+// The first attempt gave every medium its own construction: the book got 3D
+// layering, the cassette got a moulded plastic shell with reels and screws,
+// films kept a plain poster. Three visual languages in one app, which is worse
+// than having none.
 //
-// The rule that keeps it from becoming decoration: a physical detail is only
-// allowed if it encodes a fact. Thickness is page count. Desaturation is
-// abandonment. Nothing is here because it looks booky.
+// The thing that makes one primitive possible is that the real objects already
+// agree on their proportions:
+//
+//   film poster        2 : 3      0.667
+//   book cover        ~5 : 8      0.625
+//   cassette J-card  2.5 : 4      0.625   (the front panel of a Norelco case)
+//   VHS sleeve      10.5 : 19     0.553
+//
+// So they share a frame, a radius, a shadow and a caption, and differ in
+// exactly one thing: the material of the edge that shows their depth. Every
+// kind is then a few lines, and adding a new one cannot invent a new style.
+//
+// The rule stays: a physical detail is only allowed if it encodes a fact.
+// Edge width is length. Desaturation is abandonment. Nothing else.
 
-// Page count → width of the visible fore-edge, in a range that stays legible
-// at thumbnail size. Exaggerated slightly against real proportions so the
-// difference between a novella and Seneca actually reads on a shelf.
-function thickness(pages) {
-  if (!pages) return 14;
-  return Math.round(Math.min(22, Math.max(5, pages / 18)));
+/** Depth strip width in px, from whatever "length" means for this kind. */
+function edgeWidth(units, perPx, min, max) {
+  if (!units) return min + 2;
+  return Math.round(Math.min(max, Math.max(min, units / perPx)));
 }
 
-export function Book({ book, size = "M", onClick, caption = true }) {
-  const t = thickness(book.pages || book.meta?.pages);
-  const cover = coverUrl(book, size);
-
+/**
+ * The primitive. Artwork in a container, with one edge showing its depth.
+ *
+ * kind    book | tape | film — chooses the edge material only
+ * art     image url, or null for a printed face
+ * depth   px width of the edge strip
+ * square  the source art is square, not portrait. Podcast artwork is 1:1, and
+ *         cropping it to a portrait panel cuts the title off the top of every
+ *         cover. A real J-card does the same thing this does: show the square
+ *         whole at the top, print the name underneath.
+ */
+function Artifact({
+  kind,
+  art,
+  title,
+  sub,
+  depth = 8,
+  square = false,
+  muted = false,
+  caption = true,
+  onClick,
+  children,
+}) {
   return (
     <button
-      className={`obj obj-book status-${book.status}`}
-      style={{ "--t": `${t}px` }}
+      className={`art art--${kind} ${square ? "art--square" : ""} ${
+        muted ? "art--muted" : ""
+      }`}
+      style={{ "--edge": `${depth}px` }}
       onClick={onClick}
-      title={`${book.title}${book.author ? ` — ${book.author}` : ""}`}
+      title={sub ? `${title} — ${sub}` : title}
     >
-      <span className="obj-book__body">
-        {/* The page block, behind and to the right of the board. */}
-        <span className="obj-book__edge" />
-
-        {/* The front board. The cover image is the board's face, not a
-            separate picture sitting on top of it. */}
-        <span className="obj-book__front">
-          {cover ? (
-            <img src={cover} alt="" loading="lazy" draggable="false" />
+      <span className="art__frame">
+        <span className="art__edge" />
+        <span className="art__face">
+          {art ? (
+            <>
+              <img src={art} alt="" loading="lazy" draggable="false" />
+              {square && <span className="art__stock">{title}</span>}
+            </>
           ) : (
-            <span className="obj-book__blank">
-              <span className="t">{book.title}</span>
-              {book.author && <span className="a">{book.author}</span>}
+            <span className="art__printed">
+              <span className="art__printed-title">{title}</span>
+              {sub && <span className="art__printed-sub">{sub}</span>}
             </span>
           )}
         </span>
-
-        {/* The hinge where the board wraps the binding. */}
-        <span className="obj-book__spine" />
+        {children}
       </span>
 
       {caption && (
-        <span className="obj-caption">
-          <span className="obj-title">{book.title}</span>
-          {book.author && <span className="obj-sub">{book.author}</span>}
+        <span className="art__caption">
+          <span className="art__title">{title}</span>
+          {sub && <span className="art__sub">{sub}</span>}
         </span>
       )}
     </button>
   );
 }
 
+// --- Book ------------------------------------------------------------------
+// Edge is the fore-edge: the stack of paper. Width is page count.
 
-// ---------------------------------------------------------------------------
-// Cassette
-//
-// A podcast is a tape in its case: cover art on the label, two reels behind the
-// window. The reels are the encoding. Tape moves from the left hub to the right
-// as you listen, so their relative fill is your position in the episode you are
-// part way through. A show with nothing open shows a rewound tape.
+export function Book({ book, size = "M", onClick, caption = true }) {
+  return (
+    <Artifact
+      kind="book"
+      art={coverUrl(book, size)}
+      title={book.title}
+      sub={book.author}
+      depth={edgeWidth(book.pages || book.meta?.pages, 18, 5, 20)}
+      muted={book.status === "abandoned"}
+      caption={caption}
+      onClick={onClick}
+    />
+  );
+}
 
-const REEL_MIN = 22; // an empty hub still has the spool itself
-const REEL_MAX = 46;
+// --- Cassette --------------------------------------------------------------
+// A tape stands in its case, so what you see is the J-card front through clear
+// plastic. Edge is the case spine, a constant, because a Norelco box is one
+// size whatever is inside it.
 
 export function Cassette({ podcast, onClick, caption = true }) {
   const open = inProgressEpisode(podcast);
   const { played, total } = podcastProgress(podcast);
-  const p = open ? open.progress : 0;
-
-  // Radii in percent of the reel box. Left gives up what right takes on.
-  const left = REEL_MAX - (REEL_MAX - REEL_MIN) * p;
-  const right = REEL_MIN + (REEL_MAX - REEL_MIN) * p;
-  const art = podcast.meta?.image || null;
 
   return (
-    <button
-      className={`obj obj-cassette ${open ? "playing" : ""}`}
+    <Artifact
+      kind="tape"
+      art={podcast.meta?.image || null}
+      title={podcast.title}
+      sub={
+        open
+          ? `${Math.round(open.progress * 100)}% through an episode`
+          : `${played} of ${total} played`
+      }
+      depth={9}
+      square
+      caption={caption}
       onClick={onClick}
-      title={`${podcast.title}${podcast.author ? ` — ${podcast.author}` : ""}`}
     >
-      <span className="obj-cassette__shell">
-        <span className="obj-cassette__label">
-          {art ? (
-            <img src={art} alt="" loading="lazy" draggable="false" />
-          ) : (
-            <span className="obj-cassette__printed">{podcast.title}</span>
-          )}
-        </span>
-
-        {/* The window, and the two reels behind it. */}
-        <span className="obj-cassette__window">
-          <span
-            className="obj-cassette__reel"
-            style={{ "--r": `${left}%` }}
-          />
-          <span
-            className="obj-cassette__reel"
-            style={{ "--r": `${right}%` }}
-          />
-        </span>
-
-        <span className="obj-cassette__screws" />
-      </span>
-
-      {caption && (
-        <span className="obj-caption">
-          <span className="obj-title">{podcast.title}</span>
-          <span className="obj-sub">
-            {open
-              ? `${Math.round(p * 100)}% through an episode`
-              : `${played} of ${total} played`}
-          </span>
-        </span>
+      {/* The one thing a case shows that a book does not: how far through the
+          tape you are, read off the spine like a progress line. */}
+      {open && (
+        <span
+          className="art__tape-line"
+          style={{ "--p": `${Math.round(open.progress * 100)}%` }}
+        />
       )}
-    </button>
+    </Artifact>
   );
 }

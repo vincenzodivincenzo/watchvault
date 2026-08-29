@@ -87,7 +87,7 @@ export default function PodcastsView({ lib, query, update, pendingOpen, onPendin
       {shown.length === 0 && (
         <p className="empty-filter">No podcasts match that filter.</p>
       )}
-      <div className="obj-shelf cassettes">
+      <div className="obj-shelf">
         {shown.map((p) => (
           <Cassette key={p.uuid} podcast={p} onClick={() => setOpenUuid(p.uuid)} />
         ))}

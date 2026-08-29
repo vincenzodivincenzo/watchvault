@@ -410,13 +410,14 @@ select:focus {
 
 .card {
   cursor: pointer;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--card-shadow);
-  transition: transform 0.12s ease, border-color 0.12s ease;
-  position: relative;
+  /* Same frame as every other object: no panel, no border, the artwork is the
+     thing. The card used to be a bordered surface with the poster inside it,
+     which is why films read as a different design language from books. */
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .card:hover {
@@ -425,10 +426,20 @@ select:focus {
 }
 
 .poster {
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 5 / 8;
   width: 100%;
   position: relative;
-  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-3);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+  transition: transform 160ms ease;
+}
+
+.card:hover .poster {
+  transform: translateY(-3px);
 }
 
 .poster img {
@@ -503,7 +514,7 @@ select:focus {
 }
 
 .card .info {
-  padding: 9px 10px 10px;
+  padding: 10px 2px 0;
 }
 
 .card .title {
@@ -1568,10 +1579,18 @@ select:focus {
 }
 
 /* ---------- Analog objects ---------- */
-/* Shared shelf furniture. Each media kind draws itself as its physical
-   artifact; only properties that encode a fact are allowed to vary. */
+/*
+ * One primitive for every medium. The real objects already agree on their
+ * proportions — film poster 2:3, book cover ~5:8, cassette J-card 2.5x4 — so
+ * they share a frame, a radius, a shadow and a caption, and differ only in the
+ * material of the edge that shows their depth.
+ *
+ * --edge is that strip's width, and it is the only thing a kind gets to change
+ * about the shape. Everything below the kind modifiers is shared, which is what
+ * keeps a new medium from inventing a new style.
+ */
 
-.obj {
+.art {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1582,14 +1601,160 @@ select:focus {
   width: 100%;
 }
 
-.obj-caption {
+.art__frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 8;
+  border-radius: 3px;
+  transition: transform 160ms ease;
+}
+
+.art:hover .art__frame,
+.art:focus-visible .art__frame {
+  transform: translateY(-3px);
+}
+
+/* The face carries the artwork and stops short of the edge strip. */
+.art__face {
+  position: absolute;
+  inset: 0 var(--edge) 0 0;
+  border-radius: 3px 1px 1px 3px;
+  overflow: hidden;
+  background: var(--surface-3);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+
+.art__face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* No artwork: set the title rather than showing a hole. */
+.art__printed {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+  padding: 14px 13px;
+  background: var(--surface-2);
+}
+
+.art__printed-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.art__printed-sub {
+  font-size: 10px;
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Square source art on a portrait panel: show it whole at the top and print
+   the name on the stock below, which is what a J-card does. Cropping a 1:1
+   cover to 5:8 cuts the title off the top of every one. */
+.art--square .art__face {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+}
+
+.art--square .art__face img {
+  aspect-ratio: 1;
+  height: auto;
+  flex: none;
+}
+
+.art__stock {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/* The depth strip. Material is the only per-kind difference. */
+.art__edge {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  right: 0;
+  width: var(--edge);
+  border-radius: 0 3px 3px 0;
+}
+
+/* Paper: a ruled stack, darker where the board shades it. */
+.art--book .art__edge {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 55%),
+    repeating-linear-gradient(90deg, #f5efe3 0 1px, #cdc2ab 1px 2.5px);
+}
+
+/* Clear polystyrene: one highlight down the middle, nothing else. */
+.art--tape .art__edge {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.16) 0 22%,
+    rgba(120, 120, 120, 0.32) 22% 46%,
+    rgba(255, 255, 255, 0.22) 46% 60%,
+    rgba(90, 90, 90, 0.34) 60% 100%
+  );
+}
+
+/* Card sleeve: flat stock with a printed spine. */
+.art--film .art__edge {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.26),
+    rgba(0, 0, 0, 0.1) 40%,
+    rgba(0, 0, 0, 0.3)
+  );
+}
+
+/* Position on the tape, read down the case spine. */
+.art__tape-line {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  width: var(--edge);
+  height: calc(var(--p) * 0.96);
+  border-radius: 0 0 3px 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+/* Abandoned goes dusty. The fact is "I stopped", so the object wears it. */
+.art--muted .art__face {
+  filter: grayscale(0.7) brightness(0.84);
+}
+
+.art__caption {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
 }
 
-.obj-title {
+.art__title {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--ink);
@@ -1598,7 +1763,7 @@ select:focus {
   white-space: nowrap;
 }
 
-.obj-sub {
+.art__sub {
   font-size: 11px;
   color: var(--ink-muted);
   overflow: hidden;
@@ -1606,146 +1771,11 @@ select:focus {
   white-space: nowrap;
 }
 
-/* ---------- Book ---------- */
-/* --t is the page block's width in px, derived from page count.
- *
- * Built as flat layers, not as a rotated 3D solid. The first attempt put the
- * cover at inset:0 and drew the fore-edge beside it with rotateY(88deg) inside
- * a preserve-3d context: the cover then read as sitting among the pages rather
- * than on them, and the edge rendered as a detached column. Layering the board
- * over a page block is both simpler and closer to what a closed book looks
- * like from the front.
- */
-
-.obj-book__body {
-  position: relative;
-  display: block;
-  aspect-ratio: 2 / 3;
-  transition: transform 180ms ease;
-}
-
-.obj-book:hover .obj-book__body,
-.obj-book:focus-visible .obj-book__body {
-  transform: translateY(-3px);
-}
-
-/* The page block. Trimmed paper stands slightly proud of the boards at head
-   and tail, so it is inset vertically rather than flush. */
-.obj-book__edge {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  right: 0;
-  width: var(--t);
-  border-radius: 0 3px 3px 0;
-  /* Two layers: the ruling that makes it read as paper rather than a slab,
-     and a wash that darkens it toward the board, where a real fore-edge falls
-     into the shadow of the cover. */
-  background:
-    linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.26) 0%,
-      rgba(0, 0, 0, 0.06) 34%,
-      rgba(0, 0, 0, 0) 70%,
-      rgba(0, 0, 0, 0.14) 100%
-    ),
-    repeating-linear-gradient(
-      90deg,
-      #f6f1e6 0 1px,
-      #cabfa8 1px 2.5px
-    );
-}
-
-/* The front board sits ON the pages, overlapping by a pixel so there is no
-   seam between them. */
-.obj-book__front {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: calc(var(--t) - 1px);
-  z-index: 1;
-  border-radius: 2px 4px 4px 2px;
-  overflow: hidden;
-  background: var(--surface-3);
-  box-shadow:
-    0 9px 20px rgba(0, 0, 0, 0.32),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.2);
-}
-
-.obj-book__front img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* Coverless books get a printed board rather than an empty rectangle. The
-   left padding clears the hinge; it used to be narrower than the hinge, which
-   is why the title had no room. */
-.obj-book__blank {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-  height: 100%;
-  padding: 16px 14px 16px 24px;
-  background: linear-gradient(150deg, var(--surface-3), var(--surface-2));
-}
-
-.obj-book__blank .t {
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--ink);
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.obj-book__blank .a {
-  font-size: 10px;
-  color: var(--ink-muted);
-}
-
-/* The hinge, where the board wraps the binding. A fixed narrow band: it used
-   to scale with page count and so grew wider than the board's own padding. */
-.obj-book__spine {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 10px;
-  z-index: 2;
-  border-radius: 2px 0 0 2px;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.34) 0%,
-    rgba(0, 0, 0, 0.14) 46%,
-    rgba(255, 255, 255, 0.1) 72%,
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-
-/* Abandoned books go dusty. The fact is "I stopped", so the object wears it
-   rather than carrying a label. */
-.obj-book.status-abandoned .obj-book__front {
-  filter: grayscale(0.72) brightness(0.82);
-}
-
-/* The object shelf. Namespaced obj- because .shelf already belongs to the Home
-   feed's horizontal rows; a generic name here silently restyled that view.
-   Wider gaps than the poster grid because objects have depth and need air
-   around them to read as objects rather than tiles. */
+/* One shelf for every kind, because every kind is the same shape. */
 .obj-shelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: 30px 26px;
-  /* .chips above already supplies the gap; this is only headroom for the
-     hover lift. */
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+  gap: 26px 20px;
   padding: 4px 0 24px;
 }
 
@@ -1987,119 +2017,6 @@ select:focus {
   margin-top: auto !important;
 }
 
-/* ---------- Cassette ---------- */
-/* A cassette is landscape, roughly 11cm by 7cm, so it gets its own aspect and
-   its own shelf density rather than being squeezed into a poster's portrait. */
-
-.obj-cassette__shell {
-  position: relative;
-  display: block;
-  aspect-ratio: 1.55 / 1;
-  border-radius: 5px;
-  padding: 9% 8% 22%;
-  background:
-    linear-gradient(160deg, #3a3430 0%, #241f1c 46%, #191513 100%);
-  box-shadow:
-    0 8px 18px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-}
-
-/* The paper label, where the cover art goes. */
-.obj-cassette__label {
-  position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 9%;
-  bottom: 34%;
-  border-radius: 2px;
-  overflow: hidden;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
-}
-
-.obj-cassette__label img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.obj-cassette__printed {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  padding: 7px 8px;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  line-height: 1.3;
-  color: var(--ink);
-}
-
-/* The window and its two reels. */
-.obj-cassette__window {
-  position: absolute;
-  left: 16%;
-  right: 16%;
-  bottom: 11%;
-  height: 20%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 6%;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.55);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
-}
-
-/* --r is the wound tape's radius. Left gives up what right takes on, so the
-   pair reads as a position rather than as two unrelated dials. */
-.obj-cassette__reel {
-  position: relative;
-  width: 34%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 50% 50%,
-    #6b6259 0 22%,
-    #2b2724 22% var(--r),
-    rgba(0, 0, 0, 0.25) var(--r) 100%
-  );
-  transition: background 200ms ease;
-}
-
-/* The two case screws, which is what tells you it is a shell and not a slab. */
-.obj-cassette__screws::before,
-.obj-cassette__screws::after {
-  content: "";
-  position: absolute;
-  bottom: 5%;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.obj-cassette__screws::before { left: 5%; }
-.obj-cassette__screws::after { right: 5%; }
-
-.obj-cassette:hover .obj-cassette__shell,
-.obj-cassette:focus-visible .obj-cassette__shell {
-  transform: translateY(-3px);
-}
-
-.obj-cassette__shell {
-  transition: transform 180ms ease;
-}
-
-/* Cassettes are landscape, so their shelf packs wider and shorter. */
-.obj-shelf.cassettes {
-  grid-template-columns: repeat(auto-fill, minmax(186px, 1fr));
-  gap: 26px 22px;
-}
 
 /* Podcast episode rows carry a percentage where a TV row carries a date. */
 .pod-episodes .name {
