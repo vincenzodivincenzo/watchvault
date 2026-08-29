@@ -1,5 +1,6 @@
 import React from "react";
 import { coverUrl } from "./books.js";
+import { inProgressEpisode, podcastProgress } from "./podcasts.js";
 
 // Analog objects.
 //
@@ -55,6 +56,72 @@ export function Book({ book, size = "M", onClick, caption = true }) {
         <span className="obj-caption">
           <span className="obj-title">{book.title}</span>
           {book.author && <span className="obj-sub">{book.author}</span>}
+        </span>
+      )}
+    </button>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Cassette
+//
+// A podcast is a tape in its case: cover art on the label, two reels behind the
+// window. The reels are the encoding. Tape moves from the left hub to the right
+// as you listen, so their relative fill is your position in the episode you are
+// part way through. A show with nothing open shows a rewound tape.
+
+const REEL_MIN = 22; // an empty hub still has the spool itself
+const REEL_MAX = 46;
+
+export function Cassette({ podcast, onClick, caption = true }) {
+  const open = inProgressEpisode(podcast);
+  const { played, total } = podcastProgress(podcast);
+  const p = open ? open.progress : 0;
+
+  // Radii in percent of the reel box. Left gives up what right takes on.
+  const left = REEL_MAX - (REEL_MAX - REEL_MIN) * p;
+  const right = REEL_MIN + (REEL_MAX - REEL_MIN) * p;
+  const art = podcast.meta?.image || null;
+
+  return (
+    <button
+      className={`obj obj-cassette ${open ? "playing" : ""}`}
+      onClick={onClick}
+      title={`${podcast.title}${podcast.author ? ` — ${podcast.author}` : ""}`}
+    >
+      <span className="obj-cassette__shell">
+        <span className="obj-cassette__label">
+          {art ? (
+            <img src={art} alt="" loading="lazy" draggable="false" />
+          ) : (
+            <span className="obj-cassette__printed">{podcast.title}</span>
+          )}
+        </span>
+
+        {/* The window, and the two reels behind it. */}
+        <span className="obj-cassette__window">
+          <span
+            className="obj-cassette__reel"
+            style={{ "--r": `${left}%` }}
+          />
+          <span
+            className="obj-cassette__reel"
+            style={{ "--r": `${right}%` }}
+          />
+        </span>
+
+        <span className="obj-cassette__screws" />
+      </span>
+
+      {caption && (
+        <span className="obj-caption">
+          <span className="obj-title">{podcast.title}</span>
+          <span className="obj-sub">
+            {open
+              ? `${Math.round(p * 100)}% through an episode`
+              : `${played} of ${total} played`}
+          </span>
         </span>
       )}
     </button>

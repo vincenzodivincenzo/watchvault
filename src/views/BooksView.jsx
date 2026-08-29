@@ -118,19 +118,17 @@ export default function BooksView({
 
   return (
     <>
-      <div className="toolbar">
-        <div className="filters">
-          {FILTERS.map(([id, label]) => (
-            <button
-              key={id}
-              className={`chip ${filter === id ? "on" : ""}`}
-              onClick={() => setFilter(id)}
-            >
-              {label} <span className="chip-count">{counts[id]}</span>
-            </button>
-          ))}
-        </div>
-        <label className="sortwrap">
+      <div className="chips">
+        {FILTERS.map(([id, label]) => (
+          <button
+            key={id}
+            className={`chip ${filter === id ? "active" : ""}`}
+            onClick={() => setFilter(id)}
+          >
+            {label} {counts[id]}
+          </button>
+        ))}
+        <span className="sort">
           Sort
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
             {SORTS.map((s) => (
@@ -139,7 +137,7 @@ export default function BooksView({
               </option>
             ))}
           </select>
-        </label>
+        </span>
       </div>
 
       {shown.length === 0 && (

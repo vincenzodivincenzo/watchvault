@@ -1744,8 +1744,9 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 30px 26px;
-  /* A little headroom for the hover lift. */
-  padding: 6px 0 24px;
+  /* .chips above already supplies the gap; this is only headroom for the
+     hover lift. */
+  padding: 4px 0 24px;
 }
 
 .empty-note {
@@ -1985,3 +1986,156 @@ select:focus {
 .book-shelf-card .info .btn {
   margin-top: auto !important;
 }
+
+/* ---------- Cassette ---------- */
+/* A cassette is landscape, roughly 11cm by 7cm, so it gets its own aspect and
+   its own shelf density rather than being squeezed into a poster's portrait. */
+
+.obj-cassette__shell {
+  position: relative;
+  display: block;
+  aspect-ratio: 1.55 / 1;
+  border-radius: 5px;
+  padding: 9% 8% 22%;
+  background:
+    linear-gradient(160deg, #3a3430 0%, #241f1c 46%, #191513 100%);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* The paper label, where the cover art goes. */
+.obj-cassette__label {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 9%;
+  bottom: 34%;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.obj-cassette__label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.obj-cassette__printed {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 7px 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+/* The window and its two reels. */
+.obj-cassette__window {
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: 11%;
+  height: 20%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6%;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* --r is the wound tape's radius. Left gives up what right takes on, so the
+   pair reads as a position rather than as two unrelated dials. */
+.obj-cassette__reel {
+  position: relative;
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    #6b6259 0 22%,
+    #2b2724 22% var(--r),
+    rgba(0, 0, 0, 0.25) var(--r) 100%
+  );
+  transition: background 200ms ease;
+}
+
+/* The two case screws, which is what tells you it is a shell and not a slab. */
+.obj-cassette__screws::before,
+.obj-cassette__screws::after {
+  content: "";
+  position: absolute;
+  bottom: 5%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.obj-cassette__screws::before { left: 5%; }
+.obj-cassette__screws::after { right: 5%; }
+
+.obj-cassette:hover .obj-cassette__shell,
+.obj-cassette:focus-visible .obj-cassette__shell {
+  transform: translateY(-3px);
+}
+
+.obj-cassette__shell {
+  transition: transform 180ms ease;
+}
+
+/* Cassettes are landscape, so their shelf packs wider and shorter. */
+.obj-shelf.cassettes {
+  grid-template-columns: repeat(auto-fill, minmax(186px, 1fr));
+  gap: 26px 22px;
+}
+
+/* Podcast episode rows carry a percentage where a TV row carries a date. */
+.pod-episodes .name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pod-progress {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--accent);
+}
+
+.pod-shelf-card {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pod-shelf-card .info {
+  padding: 9px 2px 0;
+}
+
+.pod-shelf-card .title,
+.pod-shelf-card .next-ep {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+

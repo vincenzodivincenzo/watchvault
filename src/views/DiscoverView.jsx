@@ -9,7 +9,8 @@ import {
   isAiredEpisode,
  nextEpisode, epCode, } from "../ui.jsx";
 import { showSignal, isNewForYou, lastWatchedAt } from "../schedule.js";
-import { Book } from "../objects.jsx";
+import { Book, Cassette } from "../objects.jsx";
+import { inProgressEpisode, lastPlayedAt } from "../podcasts.js";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
   addMovieFromTmdb,
@@ -237,7 +238,14 @@ function timeAgo(iso) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBook }) {
+export default function DiscoverView({
+  lib,
+  update,
+  notify,
+  onOpenShow,
+  onOpenBook,
+  onOpenPodcast,
+}) {
   const key = lib.settings?.tmdbKey;
   const data = lib.discover;
   const [loading, setLoading] = useState(false);
@@ -385,18 +393,58 @@ export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBo
       .filter((b) => b.status === "reading")
       .map((b) => ({ kind: "book", book: b, last: b.watchedAt || b.createdAt || "" }));
 
+    // A podcast episode you are part way through is the same kind of fact as a
+    // half-read book. Podcasts are the only source here that records a real
+    // playhead, so "38% in" is measured rather than inferred.
+    const listeningNow = (lib.podcasts || [])
+      .map((p) => ({ p, ep: inProgressEpisode(p) }))
+      .filter((x) => x.ep)
+      .map((x) => ({
+        kind: "podcast",
+        pod: x.p,
+        ep: x.ep,
+        last: x.ep.watchedAt || lastPlayedAt(x.p) || "",
+      }));
+
     const continuing = [
       ...inProgress
         .filter((x) => x.st === "watching" && !isPaused(x))
         .map((x) => ({ ...x, kind: "show" })),
       ...readingNow,
+      ...listeningNow,
     ].sort((a, b) => (b.last || "").localeCompare(a.last || ""));
+
+    // The same question for podcasts: episodes published after the last one you
+    // played, on a show you actually follow. Unlike television this needs no
+    // season logic, because a feed is a flat list with real publish dates.
+    const FRESH_POD_DAYS = 30;
+    const podCutoff = new Date(Date.now() - FRESH_POD_DAYS * 86400000).toISOString();
+    const newPodEpisodes = (lib.podcasts || [])
+      .map((p) => {
+        const last = lastPlayedAt(p);
+        if (!last) return null;
+        const fresh = p.episodes.filter(
+          (e) =>
+            !e.isWatched &&
+            !e.progress &&
+            e.publishedAt &&
+            e.publishedAt > last &&
+            e.publishedAt > podCutoff
+        );
+        if (!fresh.length) return null;
+        return { kind: "podcast", pod: p, ep: fresh[0], count: fresh.length, last: fresh[0].publishedAt };
+      })
+      .filter(Boolean);
 
     return {
       newEpisodes: inProgress
         .filter((x) => isNewForYou(x.sig))
         .sort((a, b) => (b.sig.since || "").localeCompare(a.sig.since || ""))
         .map((x) => ({ ...x, kind: "show" }))
+        .concat(newPodEpisodes)
+        .sort((a, b) =>
+          ((b.sig?.since || b.last) || "").localeCompare((a.sig?.since || a.last) || "")
+        )
         .slice(0, 12),
       continuing: continuing.slice(0, 12),
       pickBackUp: inProgress
@@ -404,7 +452,7 @@ export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBo
         .map((x) => ({ ...x, kind: "show" }))
         .slice(0, 12),
     };
-  }, [lib.shows, lib.books]);
+  }, [lib.shows, lib.books, lib.podcasts]);
 
   function finishBook(uuid) {
     let title = null;
@@ -476,6 +524,7 @@ export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBo
           rows={libraryShelves.continuing}
           onOpenShow={onOpenShow}
           onOpenBook={onOpenBook}
+          onOpenPodcast={onOpenPodcast}
           onMarkNext={markNext}
           onFinishBook={finishBook}
         />
@@ -486,6 +535,7 @@ export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBo
           rows={libraryShelves.newEpisodes}
           onOpenShow={onOpenShow}
           onOpenBook={onOpenBook}
+          onOpenPodcast={onOpenPodcast}
           onMarkNext={markNext}
           onFinishBook={finishBook}
         />
@@ -532,6 +582,7 @@ export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBo
           rows={libraryShelves.pickBackUp}
           onOpenShow={onOpenShow}
           onOpenBook={onOpenBook}
+          onOpenPodcast={onOpenPodcast}
           onMarkNext={markNext}
           onFinishBook={finishBook}
         />
@@ -552,13 +603,29 @@ export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBo
 }
 
 // A shelf of your own shows: progress, next episode, one-click logging.
-function LibShelf({ title, rows, onOpenShow, onOpenBook, onMarkNext, onFinishBook }) {
+function LibShelf({
+  title,
+  rows,
+  onOpenShow,
+  onOpenBook,
+  onOpenPodcast,
+  onMarkNext,
+  onFinishBook,
+}) {
   return (
     <div className="shelf">
       <h3>{title}</h3>
       <div className="shelf-row">
         {rows.map((row) =>
-          row.kind === "book" ? (
+          row.kind === "podcast" ? (
+            <PodcastShelfCard
+              key={row.pod.uuid}
+              pod={row.pod}
+              ep={row.ep}
+              count={row.count}
+              onOpen={() => onOpenPodcast(row.pod.uuid)}
+            />
+          ) : row.kind === "book" ? (
             <BookShelfCard
               key={row.book.uuid}
               book={row.book}
@@ -575,6 +642,23 @@ function LibShelf({ title, rows, onOpenShow, onOpenBook, onMarkNext, onFinishBoo
             />
           )
         )}
+      </div>
+    </div>
+  );
+}
+
+// A podcast on the home shelf. The reels already carry the position, so the
+// caption says which episode rather than repeating the number.
+function PodcastShelfCard({ pod, ep, count, onOpen }) {
+  return (
+    <div className="shelf-card pod-shelf-card">
+      <Cassette podcast={pod} onClick={onOpen} caption={false} />
+      <div className="info">
+        <div className="title">{pod.title}</div>
+        <div className="next-ep">
+          {count > 1 ? `${count} new · ` : ""}
+          {ep?.title || pod.author || ""}
+        </div>
       </div>
     </div>
   );
