@@ -35,6 +35,7 @@ export default function CommandPalette({
   openBook,
   markNext,
   onSearchTmdb,
+  onSearchBooks,
 }) {
   const [query, setQuery] = useState("");
 
@@ -188,7 +189,16 @@ export default function CommandPalette({
                 <span className="wv-pal-title">
                   Search TMDB for “{query.trim()}”
                 </span>
-                <CommandShortcut className="wv-pal-hint">add a new title</CommandShortcut>
+                <CommandShortcut className="wv-pal-hint">films and series</CommandShortcut>
+              </CommandItem>
+              <CommandItem
+                value={`__openlibrary__ ${query}`}
+                onSelect={() => run(() => onSearchBooks(query))}
+              >
+                <span className="wv-pal-title">
+                  Search Open Library for “{query.trim()}”
+                </span>
+                <CommandShortcut className="wv-pal-hint">books</CommandShortcut>
               </CommandItem>
             </CommandGroup>
           </>

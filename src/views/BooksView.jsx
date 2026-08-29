@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Stars, WatchDate, fmtDate } from "../ui.jsx";
 import { Book } from "../objects.jsx";
 import { coverUrl } from "../books.js";
+import BookSearch from "./BookSearch.jsx";
 
 const FILTERS = [
   ["all", "All"],
@@ -27,7 +28,16 @@ function matches(b, filter) {
   return b.status === filter;
 }
 
-export default function BooksView({ lib, query, update, pendingOpen, onPendingConsumed }) {
+export default function BooksView({
+  lib,
+  query,
+  update,
+  notify,
+  pendingOpen,
+  onPendingConsumed,
+  searchOpen,
+  onSearchClose,
+}) {
   const [filter, setFilter] = useState("reading");
   const [sort, setSort] = useState("added_desc");
   const [openUuid, setOpenUuid] = useState(null);
@@ -76,15 +86,33 @@ export default function BooksView({ lib, query, update, pendingOpen, onPendingCo
 
   const open = openUuid ? books.find((b) => b.uuid === openUuid) : null;
 
+  const addBook = (book) => {
+    update((next) => {
+      if (!next.books) next.books = [];
+      next.books.push(book);
+    });
+    notify?.(
+      `“${book.title}” added${book.status === "read" ? " as read" : " to your reading list"}`
+    );
+  };
+
+  const searchModal = searchOpen ? (
+    <BookSearch books={books} onAdd={addBook} onClose={onSearchClose} />
+  ) : null;
+
   if (!books.length) {
     return (
-      <div className="empty-note">
-        <h3>No books yet</h3>
-        <p>
-          Settings → Import Goodreads library brings in your shelves, ratings,
-          reviews and read dates from a Goodreads CSV export.
-        </p>
-      </div>
+      <>
+        <div className="empty-note">
+          <h3>No books yet</h3>
+          <p>
+            ＋ Add searches Open Library for any book. To bring your whole
+            history across at once, Settings → Import Goodreads CSV takes a
+            Goodreads export with shelves, ratings, reviews and read dates.
+          </p>
+        </div>
+        {searchModal}
+      </>
     );
   }
 
@@ -132,6 +160,7 @@ export default function BooksView({ lib, query, update, pendingOpen, onPendingCo
           onClose={() => setOpenUuid(null)}
         />
       )}
+      {searchModal}
     </>
   );
 }

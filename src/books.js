@@ -174,6 +174,115 @@ export function coverUrl(book, size = "M") {
   return null;
 }
 
+/**
+ * Search every book Open Library knows about, not just the shelf.
+ *
+ * No language filter: it does not translate the displayed title (Karamazov
+ * still comes back in Cyrillic) and it excludes non-English works entirely,
+ * which would hide half of this library. Ranking by edition count instead
+ * puts the canonical work above summaries and single-edition reprints.
+ */
+export async function searchBooks(query, { signal, limit = 20 } = {}) {
+  const q = query.trim();
+  if (!q) return [];
+  const params = new URLSearchParams({
+    q,
+    limit: String(limit),
+    fields:
+      "key,title,author_name,first_publish_year,cover_i,number_of_pages_median,edition_count,isbn,subject",
+  });
+  const res = await fetch(`${OL}/search.json?${params}`, { signal });
+  if (!res.ok) throw new Error(`Open Library ${res.status}`);
+  const data = await res.json();
+  return (data.docs || [])
+    .map((d) => ({
+      workKey: d.key,
+      title: d.title || "Untitled",
+      author: d.author_name?.[0] || null,
+      year: d.first_publish_year || null,
+      pages: d.number_of_pages_median || null,
+      coverId: d.cover_i || null,
+      editions: d.edition_count || 0,
+      isbn: (d.isbn || [])[0] || null,
+      subjects: (d.subject || []).slice(0, 6),
+    }))
+    .sort((a, b) => b.editions - a.editions);
+}
+
+// A search result becomes a shelf item. Defaults to to-read; pass a status
+// to log something already finished.
+export function bookFromSearch(r, { status = "to-read", dateIso = null } = {}) {
+  return {
+    uuid: crypto.randomUUID(),
+    kind: "book",
+    goodreadsId: null,
+    workKey: r.workKey || null,
+    title: r.title,
+    author: r.author,
+    isbn: r.isbn,
+    year: r.year,
+    pages: r.pages,
+    status,
+    isWatched: status === "read",
+    watchedAt: status === "read" ? dateIso || new Date().toISOString() : null,
+    rating: null,
+    isFavorite: false,
+    rewatchCount: 0,
+    review: null,
+    notes: null,
+    tags: [],
+    createdAt: new Date().toISOString(),
+    meta: {
+      coverId: r.coverId ?? null,
+      pages: r.pages ?? null,
+      subjects: r.subjects || [],
+      blurb: null,
+    },
+  };
+}
+
+// Titles rarely match exactly across sources: Goodreads keeps the full
+// subtitle ("Existential Kink: Unmask Your Shadow and Embrace Your Power")
+// where Open Library keeps the work title ("Existential Kink"). Compare the
+// part before the first colon, punctuation and case removed.
+function mainTitle(t) {
+  return (t || "")
+    .split(/[:(]/)[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Surname only: "Fyodor Dostoyevsky" and "Фёдор Михайлович Достоевский" will
+// never agree, but "Carolyn Elliott" and "Elliott, Carolyn" should.
+function surname(a) {
+  const parts = (a || "")
+    .toLowerCase()
+    .replace(/[^a-z\s,]/g, "")
+    .split(/[,\s]+/)
+    .filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
+// True when the shelf already holds this result. Imported books carry no work
+// key, so an exact-id match alone misses every one of them.
+export function alreadyOnShelf(books, r) {
+  const rt = mainTitle(r.title);
+  const rs = surname(r.author);
+  return (books || []).some((b) => {
+    if (r.isbn && b.isbn && b.isbn === r.isbn) return true;
+    if (r.workKey && b.workKey && b.workKey === r.workKey) return true;
+    if (!rt) return false;
+    const bt = mainTitle(b.title);
+    if (bt !== rt) return false;
+    // Same main title is not enough on its own: a summary or companion volume
+    // often repeats it. Require the author to line up too.
+    const bs = surname(b.author);
+    return !rs || !bs || bs === rs;
+  });
+}
+
 export function needsBookMeta(books) {
   return books.filter((b) => !b.meta && !b.metaFailed).length;
 }

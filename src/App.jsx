@@ -210,6 +210,11 @@ export default function App() {
   }, []);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [bookSearchOpen, setBookSearchOpen] = useState(false);
+  const openBookSearch = useCallback(() => {
+    setView("books");
+    setBookSearchOpen(true);
+  }, [setView]);
 
   // Log the next aired episode of a show without opening anything.
   const markNextEpisode = useCallback(
@@ -379,10 +384,17 @@ export default function App() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              {/* ＋ Add opens the TMDB search, which has nothing to offer a
-                  book shelf. Books come in through the Goodreads import until
-                  there is an Open Library search to point this at. */}
-              {view !== "books" && (
+              {/* Each shelf adds from its own catalogue: TMDB for screen,
+                  Open Library for books. Neither needs a key. */}
+              {view === "books" ? (
+                <button
+                  className="btn primary"
+                  onClick={() => setBookSearchOpen(true)}
+                  title="Search Open Library"
+                >
+                  ＋ Add
+                </button>
+              ) : (
                 <button
                   className="btn primary"
                   onClick={goToSearch}
@@ -412,8 +424,11 @@ export default function App() {
               lib={lib}
               query={query}
               update={update}
+              notify={notify}
               pendingOpen={pendingBook}
               onPendingConsumed={() => setPendingBook(null)}
+              searchOpen={bookSearchOpen}
+              onSearchClose={() => setBookSearchOpen(false)}
             />
           )}
           {view === "shows" && (
@@ -459,6 +474,7 @@ export default function App() {
         openBook={openBookFromPalette}
         markNext={markNextEpisode}
         onSearchTmdb={goToSearch}
+        onSearchBooks={openBookSearch}
       />
 
       {toast && <div className="toast">{toast}</div>}
