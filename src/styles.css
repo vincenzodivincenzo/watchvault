@@ -1845,3 +1845,10 @@ select:focus {
   border-color: var(--border);
   border-style: dashed;
 }
+
+.empty-filter {
+  color: var(--ink-muted);
+  font-size: 13.5px;
+  padding: 26px 2px;
+  margin: 0;
+}

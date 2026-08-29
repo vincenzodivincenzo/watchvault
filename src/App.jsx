@@ -29,8 +29,18 @@ const NAV = [
 export default function App() {
   const [lib, setLib] = useState(null);
   const [loaded, setLoaded] = useState(false);
-  const [view, setView] = useState("discover"); // Discover is the home page
+  const [viewRaw, setViewRaw] = useState("discover"); // Discover is the home page
+  const view = viewRaw;
   const [query, setQuery] = useState("");
+
+  // The filter box is shared by every shelf, so a query typed on Movies would
+  // otherwise carry over and silently empty the next one.
+  const setView = useCallback((next) => {
+    setViewRaw((prev) => {
+      if (prev !== next) setQuery("");
+      return next;
+    });
+  }, []);
   const [toast, setToast] = useState(null);
   const [enriching, setEnriching] = useState(0);
   const enrichRun = useRef(null);
@@ -358,7 +368,10 @@ export default function App() {
             drag surface, Safari-style. */}
         <div className="topbar" data-tauri-drag-region="">
           <h1 data-tauri-drag-region="">{NAV.find((n) => n.id === view)?.label}</h1>
-          {(view === "movies" || view === "shows" || view === "watchlist") && (
+          {(view === "movies" ||
+            view === "shows" ||
+            view === "books" ||
+            view === "watchlist") && (
             <>
               <input
                 className="search"
@@ -366,13 +379,18 @@ export default function App() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button
-                className="btn primary"
-                onClick={goToSearch}
-                title={tmdbKey ? "Search TMDB (⌘K)" : "Requires a TMDB key (Settings)"}
-              >
-                ＋ Add
-              </button>
+              {/* ＋ Add opens the TMDB search, which has nothing to offer a
+                  book shelf. Books come in through the Goodreads import until
+                  there is an Open Library search to point this at. */}
+              {view !== "books" && (
+                <button
+                  className="btn primary"
+                  onClick={goToSearch}
+                  title={tmdbKey ? "Search TMDB (⌘K)" : "Requires a TMDB key (Settings)"}
+                >
+                  ＋ Add
+                </button>
+              )}
             </>
           )}
         </div>

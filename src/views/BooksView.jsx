@@ -114,6 +114,11 @@ export default function BooksView({ lib, query, update, pendingOpen, onPendingCo
         </label>
       </div>
 
+      {shown.length === 0 && (
+        <p className="empty-filter">
+          No books match that filter.
+        </p>
+      )}
       <div className="obj-shelf">
         {shown.map((b) => (
           <Book key={b.uuid} book={b} onClick={() => setOpenUuid(b.uuid)} />
