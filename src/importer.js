@@ -112,7 +112,10 @@ export function importTvTimeFiles(files, base) {
     movies: [],
     shows: [],
   };
-  const report = { moviesAdded: 0, moviesMerged: 0, showsAdded: 0, showsMerged: 0, skippedFiles: [] };
+  const report = {
+    moviesAdded: 0, moviesMerged: 0, showsAdded: 0, showsMerged: 0,
+    booksAdded: 0, booksMerged: 0, skippedFiles: [],
+  };
 
   const movieIndex = new Map(lib.movies.map((m) => [movieKey(m), m]));
   const showIndex = new Map(lib.shows.map((s) => [showKey(s), s]));
@@ -173,7 +176,27 @@ export function importTvTimeFiles(files, base) {
   return { library: normalizeLibrary(lib), report };
 }
 
+function bookKey(b) {
+  return b.isbn || b.goodreadsId || `${b.title}|${b.author}`.toLowerCase();
+}
+
 function importTvTimeBackup(backup, lib, movieIndex, showIndex, report) {
+  // Books ride along in WatchVault backups. Without this the export/import
+  // round trip is lossy, which is the one thing a backup must never be.
+  if (backup.books?.length) {
+    if (!lib.books) lib.books = [];
+    const seen = new Set(lib.books.map(bookKey));
+    for (const b of backup.books) {
+      const k = bookKey(b);
+      if (seen.has(k)) {
+        report.booksMerged = (report.booksMerged || 0) + 1;
+        continue;
+      }
+      lib.books.push(b);
+      seen.add(k);
+      report.booksAdded = (report.booksAdded || 0) + 1;
+    }
+  }
   for (const m of backup.movies || []) {
     const key = movieKey(m);
     if (!movieIndex.has(key)) {

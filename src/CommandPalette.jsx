@@ -1,3 +1,4 @@
+import { lastWatchedAt } from "./schedule.js";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Command,
@@ -14,14 +15,6 @@ import { nextEpisode, epCode, showProgress } from "./ui.jsx";
 
 // Recency as a sort key. A show watched yesterday should outrank one watched in
 // 2019 even when both match the query equally well.
-function lastWatchedAt(show) {
-  let last = "";
-  for (const se of show.seasons)
-    for (const e of se.episodes)
-      if (e.isWatched && e.watchedAt && e.watchedAt > last) last = e.watchedAt;
-  return last;
-}
-
 const VIEWS = [
   ["discover", "Home"],
   ["search", "Search"],
@@ -39,6 +32,7 @@ export default function CommandPalette({
   setView,
   openShow,
   openMovie,
+  openBook,
   markNext,
   onSearchTmdb,
 }) {
@@ -59,7 +53,7 @@ export default function CommandPalette({
       .filter((s) => s.status !== "stopped")
       .map((s) => ({ s, next: nextEpisode(s), last: lastWatchedAt(s) }))
       .filter((x) => x.next && x.last)
-      .sort((a, b) => b.last.localeCompare(a.last))
+      .sort((a, b) => (b.last || "").localeCompare(a.last || ""))
       .slice(0, 8);
   }, [lib]);
 
@@ -72,7 +66,7 @@ export default function CommandPalette({
         uuid: s.uuid,
         title: s.title,
         hint: total ? `${watched}/${total} eps` : "series",
-        sort: lastWatchedAt(s),
+        sort: lastWatchedAt(s) || "",
       };
     });
     const movies = lib.movies.map((m) => ({
@@ -82,7 +76,22 @@ export default function CommandPalette({
       hint: m.isWatched ? `watched${m.year ? ` · ${m.year}` : ""}` : "to watch",
       sort: m.watchedAt || m.createdAt || "",
     }));
-    return [...shows, ...movies].sort((a, b) => b.sort.localeCompare(a.sort));
+    const BOOK_HINT = {
+      read: "read",
+      reading: "reading",
+      "to-read": "to read",
+      abandoned: "abandoned",
+    };
+    const books = (lib.books || []).map((b) => ({
+      kind: "book",
+      uuid: b.uuid,
+      title: b.title,
+      hint: [BOOK_HINT[b.status] || b.status, b.author].filter(Boolean).join(" · "),
+      sort: b.watchedAt || b.createdAt || "",
+    }));
+    return [...shows, ...movies, ...books].sort((a, b) =>
+      b.sort.localeCompare(a.sort)
+    );
   }, [lib]);
 
   const run = (fn) => {
@@ -136,10 +145,14 @@ export default function CommandPalette({
               {titles.map((t) => (
                 <CommandItem
                   key={`${t.kind}-${t.uuid}`}
-                  value={`${t.title} ${t.kind}`}
+                  value={`${t.title} ${t.kind} ${t.hint}`}
                   onSelect={() =>
                     run(() =>
-                      t.kind === "show" ? openShow(t.uuid) : openMovie(t.uuid)
+                      t.kind === "show"
+                        ? openShow(t.uuid)
+                        : t.kind === "book"
+                          ? openBook(t.uuid)
+                          : openMovie(t.uuid)
                     )
                   }
                 >

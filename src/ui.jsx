@@ -346,14 +346,14 @@ export function WatchDate({ iso, onChange, label = "Date watched" }) {
   if (!editing) {
     return (
       <button
-        className="watch-date"
-        title={`${label} — click to change`}
+        className={`watch-date ${iso ? "" : "empty"}`}
+        title={iso ? `${label} — click to change` : `${label} — click to set`}
         onClick={(e) => {
           e.stopPropagation();
           setEditing(true);
         }}
       >
-        {fmtDate(iso)}
+        {iso ? fmtDate(iso) : "add date"}
       </button>
     );
   }

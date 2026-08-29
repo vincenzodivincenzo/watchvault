@@ -62,15 +62,29 @@ export function seasonRows(show, now = today()) {
     });
 }
 
-export function lastWatchedDay(show) {
+/**
+ * The most recent watch timestamp on a show, or null.
+ *
+ * `realOnly` excludes episodes flagged `bulk`, which are imported history
+ * rather than a watch that actually happened on that date. Callers ranking by
+ * "what am I actually watching" want that; callers asking "is anything here
+ * unwatched since" do not.
+ *
+ * This lived in three view files and here, in two subtly different versions
+ * (one returning "" and one null). One definition now.
+ */
+export function lastWatchedAt(show, { realOnly = false } = {}) {
   let last = null;
   for (const se of show.seasons)
     for (const e of se.episodes)
-      if (e.isWatched && e.watchedAt) {
-        const d = e.watchedAt.slice(0, 10);
-        if (!last || d > last) last = d;
-      }
+      if (e.isWatched && e.watchedAt && (!realOnly || !e.bulk))
+        if (!last || e.watchedAt > last) last = e.watchedAt;
   return last;
+}
+
+export function lastWatchedDay(show) {
+  const at = lastWatchedAt(show);
+  return at ? at.slice(0, 10) : null;
 }
 
 function daysSince(day, now) {

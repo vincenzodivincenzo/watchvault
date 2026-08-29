@@ -17,6 +17,7 @@ export function emptyLibrary() {
     settings: { tmdbKey: "" },
     movies: [],
     shows: [],
+    books: [],
     notInterested: [],
   };
 }

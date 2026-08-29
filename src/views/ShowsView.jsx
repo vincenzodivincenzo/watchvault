@@ -13,7 +13,7 @@ import {
   isCanonSeason,
   isAiredEpisode,
 } from "../ui.jsx";
-import { seasonCadence } from "../schedule.js";
+import { seasonCadence, lastWatchedAt } from "../schedule.js";
 import { img, tvDetails, fetchAllSeasons, tvMeta, findByExternalId } from "../tmdb.js";
 
 const SORTS = [
@@ -22,14 +22,6 @@ const SORTS = [
   { id: "added_desc", label: "Recently added" },
   { id: "lastwatched", label: "Recently watched" },
 ];
-
-function lastWatchedAt(show) {
-  let last = "";
-  for (const se of show.seasons)
-    for (const e of se.episodes)
-      if (e.isWatched && e.watchedAt && e.watchedAt > last) last = e.watchedAt;
-  return last;
-}
 
 function filterBucket(show) {
   if (show.status === "stopped") return "stopped";
@@ -138,7 +130,8 @@ export default function ShowsView({
         return (pb.total ? pb.watched / pb.total : 0) - (pa.total ? pa.watched / pa.total : 0);
       },
       added_desc: (a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""),
-      lastwatched: (a, b) => lastWatchedAt(b).localeCompare(lastWatchedAt(a)),
+      lastwatched: (a, b) =>
+        (lastWatchedAt(b) || "").localeCompare(lastWatchedAt(a) || ""),
     }[sort];
     return [...list].sort(by);
   }, [lib.shows, query, filter, sort]);

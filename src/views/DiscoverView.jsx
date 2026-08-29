@@ -8,7 +8,7 @@ import {
   isCanonEpisode,
   isAiredEpisode,
  nextEpisode, epCode, } from "../ui.jsx";
-import { showSignal, isNewForYou } from "../schedule.js";
+import { showSignal, isNewForYou, lastWatchedAt } from "../schedule.js";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
   addMovieFromTmdb,
@@ -57,20 +57,6 @@ function recencyBonus(iso) {
   if (days <= 90) return 100;
   if (days <= 365) return 40;
   return 0;
-}
-
-function lastWatchedAt(s, { realOnly = false } = {}) {
-  let last = null;
-  for (const se of s.seasons)
-    for (const e of se.episodes)
-      if (
-        e.isWatched &&
-        e.watchedAt &&
-        (!realOnly || !e.bulk) &&
-        (!last || e.watchedAt > last)
-      )
-        last = e.watchedAt;
-  return last;
 }
 
 function movieSeedPool(lib) {

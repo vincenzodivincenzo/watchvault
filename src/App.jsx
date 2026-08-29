@@ -193,6 +193,12 @@ export default function App() {
     setView("movies");
   }, []);
 
+  const [pendingBook, setPendingBook] = useState(null);
+  const openBookFromPalette = useCallback((uuid) => {
+    setPendingBook(uuid);
+    setView("books");
+  }, []);
+
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Log the next aired episode of a show without opening anything.
@@ -248,8 +254,11 @@ export default function App() {
     const bits = [];
     if (report.moviesAdded) bits.push(`${report.moviesAdded} movies added`);
     if (report.showsAdded) bits.push(`${report.showsAdded} shows added`);
-    if (report.moviesMerged || report.showsMerged)
-      bits.push(`${report.moviesMerged + report.showsMerged} merged`);
+    if (report.booksAdded) bits.push(`${report.booksAdded} books added`);
+    if (report.moviesMerged || report.showsMerged || report.booksMerged)
+      bits.push(
+        `${report.moviesMerged + report.showsMerged + (report.booksMerged || 0)} merged`
+      );
     for (const s of report.skippedFiles) bits.push(s);
     notify(bits.length ? `Import: ${bits.join(", ")}` : "Nothing imported");
   }
@@ -381,7 +390,13 @@ export default function App() {
             />
           )}
           {view === "books" && (
-            <BooksView lib={lib} query={query} update={update} />
+            <BooksView
+              lib={lib}
+              query={query}
+              update={update}
+              pendingOpen={pendingBook}
+              onPendingConsumed={() => setPendingBook(null)}
+            />
           )}
           {view === "shows" && (
             <ShowsView
@@ -423,6 +438,7 @@ export default function App() {
         setView={setView}
         openShow={openShowFromHome}
         openMovie={openMovieFromPalette}
+        openBook={openBookFromPalette}
         markNext={markNextEpisode}
         onSearchTmdb={goToSearch}
       />

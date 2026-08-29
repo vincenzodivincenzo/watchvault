@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Stars, WatchDate, fmtDate } from "../ui.jsx";
 import { Book } from "../objects.jsx";
 import { coverUrl } from "../books.js";
@@ -27,10 +27,18 @@ function matches(b, filter) {
   return b.status === filter;
 }
 
-export default function BooksView({ lib, query, update }) {
+export default function BooksView({ lib, query, update, pendingOpen, onPendingConsumed }) {
   const [filter, setFilter] = useState("reading");
   const [sort, setSort] = useState("added_desc");
   const [openUuid, setOpenUuid] = useState(null);
+
+  // The command palette can jump straight to a book.
+  useEffect(() => {
+    if (pendingOpen) {
+      setOpenUuid(pendingOpen);
+      onPendingConsumed?.();
+    }
+  }, [pendingOpen, onPendingConsumed]);
 
   const books = lib.books || [];
 
@@ -155,7 +163,7 @@ function BookDetail({ book, patch, onClose }) {
               book.author,
               book.year,
               book.pages ? `${book.pages} pages` : null,
-              book.status === "read" && book.watchedAt ? (
+              book.status === "read" ? (
                 <React.Fragment key="read">
                   Read{" "}
                   <WatchDate

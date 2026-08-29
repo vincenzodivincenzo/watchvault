@@ -1838,3 +1838,10 @@ select:focus {
   font-size: 11px;
   color: var(--ink-muted);
 }
+
+/* A watch date that has not been set yet still has to look clickable. */
+.watch-date.empty {
+  color: var(--ink-muted);
+  border-color: var(--border);
+  border-style: dashed;
+}
