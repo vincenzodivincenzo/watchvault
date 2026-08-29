@@ -1799,3 +1799,42 @@ select:focus {
   font-size: 11px;
   color: var(--ink-muted);
 }
+
+/* Dismissed-titles backlog in Settings. */
+.dismiss-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.dismiss-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13px;
+}
+
+.dismiss-list li:last-child {
+  border-bottom: none;
+}
+
+.dl-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-meta {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-muted);
+}

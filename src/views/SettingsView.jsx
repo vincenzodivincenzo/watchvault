@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { fmtDate } from "../ui.jsx";
 import { testKey } from "../tmdb.js";
 import { testOmdbKey } from "../omdb.js";
 import { exportBackup, getLibraryPath, pickCsvFiles } from "../store.js";
@@ -194,29 +195,7 @@ export default function SettingsView({ lib, update, onImport, notify }) {
           Shelves, ratings, reviews, read dates and re-read counts all come
           across; covers are fetched from Open Library afterwards.
         </p>
-        {(lib.notInterested?.length || 0) > 0 && (
-          <div style={{ marginTop: 12 }}>
-            <p className="hint">
-              Home feed “not interested” list: {lib.notInterested.length}{" "}
-              title{lib.notInterested.length === 1 ? "" : "s"} (
-              {lib.notInterested
-                .slice(-3)
-                .map((d) => d.title)
-                .join(", ")}
-              {lib.notInterested.length > 3 ? "…" : ""})
-            </p>
-            <button
-              className="btn small"
-              style={{ marginTop: 6 }}
-              onClick={() => {
-                if (confirm("Clear the not-interested list? These titles may be recommended again."))
-                  update((next) => (next.notInterested = []));
-              }}
-            >
-              Clear not-interested list
-            </button>
-          </div>
-        )}
+        <NotInterested lib={lib} update={update} notify={notify} />
       </div>
 
       <div className="panel">
@@ -345,6 +324,71 @@ function OmdbPanel({ lib, update, notify }) {
           {rated} titles have community ratings
           {failed > 0 ? ` · ${failed} not found on OMDb` : ""}.
         </p>
+      )}
+    </div>
+  );
+}
+
+
+// Everything you have dismissed from the Home feed, newest first, each one
+// restorable. A dismissal is a judgement you made once, months ago, on one
+// card — it should be inspectable and reversible, not a permanent invisible
+// weight on the recommendations.
+function NotInterested({ lib, update, notify }) {
+  const [open, setOpen] = useState(false);
+  const list = lib.notInterested || [];
+  if (!list.length) return null;
+
+  const restore = (d) => {
+    update((next) => {
+      next.notInterested = (next.notInterested || []).filter(
+        (x) => !(x.kind === d.kind && x.tmdbId === d.tmdbId)
+      );
+    });
+    notify(`“${d.title}” can be suggested again`);
+  };
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <button className="btn small" onClick={() => setOpen((v) => !v)}>
+        {open ? "▾" : "▸"} Not interested ({list.length})
+      </button>
+      <p className="hint" style={{ marginTop: 8 }}>
+        Hidden from the Home feed. Their genres also count slightly against
+        similar suggestions, in proportion to how much you have liked that
+        genre otherwise.
+      </p>
+      {open && (
+        <>
+          <ul className="dismiss-list">
+            {[...list].reverse().map((d) => (
+              <li key={`${d.kind}-${d.tmdbId}`}>
+                <span className="dl-title">{d.title}</span>
+                <span className="dl-meta">
+                  {d.kind === "movie" ? "film" : "series"}
+                  {d.at ? ` · ${fmtDate(d.at)}` : ""}
+                </span>
+                <button className="btn small" onClick={() => restore(d)}>
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            className="btn small"
+            style={{ marginTop: 10 }}
+            onClick={() => {
+              if (
+                confirm(
+                  `Restore all ${list.length} dismissed titles? They may be suggested again.`
+                )
+              )
+                update((next) => (next.notInterested = []));
+            }}
+          >
+            Restore all
+          </button>
+        </>
       )}
     </div>
   );

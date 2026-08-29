@@ -30,16 +30,25 @@ const MOVIE_GENRES = {
   27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance",
   878: "Sci-Fi", 53: "Thriller", 10752: "War", 37: "Western",
 };
+// These must be TMDB's own TV genre names, because that is what tvMeta stores
+// on each show and what the taste map is therefore keyed by. Shortening
+// "Action & Adventure" to "Action" here meant every TV taste lookup for the two
+// biggest show genres silently missed and returned zero.
 const TV_GENRES = {
-  10759: "Action", 16: "Animation", 35: "Comedy", 80: "Crime",
+  10759: "Action & Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
   99: "Documentary", 18: "Drama", 10751: "Family", 10762: "Kids",
-  9648: "Mystery", 10764: "Reality", 10765: "Sci-Fi", 10766: "Soap",
+  9648: "Mystery", 10764: "Reality", 10765: "Sci-Fi & Fantasy", 10766: "Soap",
   10768: "War & Politics", 37: "Western",
 };
 
-function genreTags(kindApi, ids) {
+export function genreNames(kindApi, ids) {
   const table = kindApi === "movie" ? MOVIE_GENRES : TV_GENRES;
-  return (ids || []).map((id) => table[id]).filter(Boolean).slice(0, 2);
+  return (ids || []).map((id) => table[id]).filter(Boolean);
+}
+
+// Cards show at most two tags; scoring uses all of them.
+function genreTags(kindApi, ids) {
+  return genreNames(kindApi, ids).slice(0, 2);
 }
 
 function recencyBonus(iso) {
@@ -88,10 +97,13 @@ function showSeedPool(lib) {
 function dismissedInfo(lib) {
   const list = lib.notInterested || [];
   const ids = new Set(list.map((d) => `${d.kind}-${d.tmdbId}`));
-  const genreCount = new Map();
+  // Keyed by genre NAME so it can be compared against the taste map, which is
+  // also keyed by name. Counting raw ids made the two incomparable.
+  const byGenre = new Map();
   for (const d of list)
-    for (const g of d.genreIds || []) genreCount.set(g, (genreCount.get(g) || 0) + 1);
-  return { ids, genreCount };
+    for (const g of genreNames(d.kind === "movie" ? "movie" : "tv", d.genreIds))
+      byGenre.set(g, (byGenre.get(g) || 0) + 1);
+  return { ids, byGenre };
 }
 
 // What you love, as genre names — used to boost matching recommendations.
@@ -189,9 +201,21 @@ export async function buildDiscover(lib, key, round) {
       });
   }
 
+  // A dismissal is evidence against a genre only in proportion to how much you
+  // have actually loved that genre. Counting dismissals absolutely meant seven
+  // rejected shonen series outweighed nine years of anime, and six rejected
+  // dramas outweighed Drama being the single strongest genre in the library.
+  // d/(d+t) is self-normalising: it approaches the cap when there is no
+  // countervailing evidence, and collapses to nearly zero when there is.
+  const MAX_GENRE_PENALTY = 3;
   const genrePenalty = (rec) =>
-    (rec.genreIds || []).reduce(
-      (p, g) => p + Math.min(dismissed.genreCount.get(g) || 0, 3),
+    genreNames(rec.kind === "movie" ? "movie" : "tv", rec.genreIds).reduce(
+      (p, name) => {
+        const no = dismissed.byGenre.get(name) || 0;
+        if (!no) return p;
+        const yes = taste.get(name) || 0;
+        return p + (MAX_GENRE_PENALTY * no) / (no + yes);
+      },
       0
     );
   const tasteBoost = (rec) =>
@@ -428,7 +452,7 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
           ⟳ New batch
         </button>
         <span className="hint" style={{ margin: 0 }}>
-          ✕ hides a title forever and teaches your taste
+          ✕ hides a title and nudges its genres down
         </span>
       </div>
 
