@@ -8,23 +8,16 @@ import { coverUrl } from "./books.js";
 // properties rather than through badges bolted on top.
 //
 // The rule that keeps it from becoming decoration: a physical detail is only
-// allowed if it encodes a fact. Thickness is page count. The ribbon's height is
-// how far in you stopped. Desaturation is abandonment. Nothing is here because
-// it looks booky.
+// allowed if it encodes a fact. Thickness is page count. Desaturation is
+// abandonment. Nothing is here because it looks booky.
 
-// Page count → millimetres of spine, in a range that stays legible on a shelf.
-// Real books run about 250 pages to 20mm; this exaggerates slightly so the
-// difference between a novella and Seneca is visible at thumbnail size.
+// Page count → width of the visible fore-edge, in a range that stays legible
+// at thumbnail size. Exaggerated slightly against real proportions so the
+// difference between a novella and Seneca actually reads on a shelf.
 function thickness(pages) {
   if (!pages) return 14;
   return Math.round(Math.min(22, Math.max(5, pages / 18)));
 }
-
-// A ribbon means the book is open: in progress, or abandoned part way. It
-// carries no depth. Goodreads records no page position, so encoding "how far
-// in you got" in the ribbon's placement was precision the data never had.
-const hasRibbon = (book) =>
-  book.status === "reading" || book.status === "abandoned";
 
 export function Book({ book, size = "M", onClick, caption = true }) {
   const t = thickness(book.pages || book.meta?.pages);
@@ -56,8 +49,6 @@ export function Book({ book, size = "M", onClick, caption = true }) {
 
         {/* The hinge where the board wraps the binding. */}
         <span className="obj-book__spine" />
-
-        {hasRibbon(book) && <span className="obj-book__ribbon" />}
       </span>
 
       {caption && (
