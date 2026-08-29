@@ -7,7 +7,8 @@ import {
   showState,
   isCanonEpisode,
   isAiredEpisode,
- nextEpisode, epCode,} from "../ui.jsx";
+ nextEpisode, epCode, } from "../ui.jsx";
+import { showSignal, isNewForYou } from "../schedule.js";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
   addMovieFromTmdb,
@@ -353,17 +354,24 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
     const inProgress = [];
     for (const s of lib.shows) {
       if (s.status === "stopped") continue;
+      const sig = showSignal(s);
       const st = showState(s);
       if (st !== "watching" && st !== "newepisodes") continue;
       const next = nextEpisode(s);
       if (!next) continue;
-      inProgress.push({ s, st, next, last: lastWatchedAt(s) });
+      inProgress.push({ s, st, sig, next, last: lastWatchedAt(s) });
     }
+    // "New for you" is ranked by when the episodes ARRIVED, not by when you
+    // last watched: a season that dropped last week outranks one you were
+    // poking at yesterday. Everything else still sorts by your own recency.
     inProgress.sort((a, b) => (b.last || "").localeCompare(a.last || ""));
     const cutoff = Date.now() - PAUSED_AFTER_DAYS * 86400000;
     const isPaused = (x) => !x.last || new Date(x.last).getTime() < cutoff;
     return {
-      newEpisodes: inProgress.filter((x) => x.st === "newepisodes").slice(0, 12),
+      newEpisodes: inProgress
+        .filter((x) => isNewForYou(x.sig))
+        .sort((a, b) => (b.sig.since || "").localeCompare(a.sig.since || ""))
+        .slice(0, 12),
       keepWatching: inProgress
         .filter((x) => x.st === "watching" && !isPaused(x))
         .slice(0, 12),

@@ -1,6 +1,15 @@
 import React from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { img } from "./tmdb.js";
+import {
+  showSignal,
+  isEnded,
+  isCanonSeason,
+  isCanonEpisode,
+  isAiredEpisode,
+} from "./schedule.js";
+
+export { isCanonSeason, isCanonEpisode, isAiredEpisode };
 
 // The in-app brand mark — the same vault-dial/film-reel as the macOS icon.
 export function VaultMark({ size = 26 }) {
@@ -152,16 +161,26 @@ export function movieBadge(m) {
 }
 
 // Status buckets for a show, combining local progress with TMDB status.
+// Kept as the app's coarse vocabulary so filters, badges and stats keep working
+// unchanged. The judgement now comes from showSignal, which asks the question
+// per season and against the calendar rather than from a whole-series
+// completion percentage. See schedule.js for why the percentage was wrong.
 export function showState(show) {
-  const { watched, total, airedUnwatched } = showProgress(show);
-  const ended = /ended|canceled/i.test(show.meta?.statusText || "");
-  const complete = total > 0 && watched >= total;
-  if (complete && ended) return "completed";
-  if (complete) return "uptodate";
-  if (ended && watched === 0) return "notstarted-ended";
-  if (watched === 0) return "notstarted";
-  if (airedUnwatched > 0 && watched / total >= 0.85) return "newepisodes";
-  return "watching";
+  const { state } = showSignal(show);
+  switch (state) {
+    case "completed":
+      return "completed";
+    case "caughtup":
+      return "uptodate";
+    case "notstarted":
+      return isEnded(show) ? "notstarted-ended" : "notstarted";
+    case "newseason":
+    case "newepisodes":
+      return "newepisodes";
+    default:
+      // stalled, unfinished, dabbled, empty, stopped
+      return "watching";
+  }
 }
 
 export function showBadge(show) {
@@ -187,16 +206,8 @@ export function showBadge(show) {
 // Canonical = a real numbered episode. Specials seasons (S0) and episodes
 // flagged as specials (podcasts, snippets, recaps) stay visible in the
 // episode list but never drive progress, badges, feeds or the watchlist.
-export const isCanonSeason = (se) => !se.isSpecials && se.number !== 0;
-export const isCanonEpisode = (se, e) => isCanonSeason(se) && !e.special;
-
-// Aired = a past air date — or a legacy TV Time episode (no TMDB id), which
-// carries no dates but definitely aired. TMDB-synced episodes without an air
-// date are announced-but-unaired placeholders and must not count.
-export const isAiredEpisode = (e) => {
-  if (e.airDate) return e.airDate <= new Date().toISOString().slice(0, 10);
-  return !e.tmdb;
-};
+// Defined in schedule.js so the scheduler and the views cannot drift apart;
+// re-exported here because everything already imports them from ui.
 
 export function showProgress(show) {
   let watched = 0;

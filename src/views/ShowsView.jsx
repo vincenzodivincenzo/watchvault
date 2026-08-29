@@ -13,6 +13,7 @@ import {
   isCanonSeason,
   isAiredEpisode,
 } from "../ui.jsx";
+import { seasonCadence } from "../schedule.js";
 import { img, tvDetails, fetchAllSeasons, tvMeta, findByExternalId } from "../tmdb.js";
 
 const SORTS = [
@@ -324,6 +325,16 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
             ]
               .filter(Boolean)
               .join(" · ")}
+          </div>
+          <div className="subline">
+            {(() => {
+              const cad = seasonCadence(s);
+              if (!cad) return null;
+              const months = (cad.medianGapDays / 30.44).toFixed(0);
+              return cad.overdueDays > 0
+                ? `Runs about every ${months} months · next season overdue by ${cad.overdueDays} days`
+                : `Runs about every ${months} months · next season expected around ${fmtDate(cad.expected)}`;
+            })()}
           </div>
           {s.meta?.genres?.length ? (
             <div className="genres">
