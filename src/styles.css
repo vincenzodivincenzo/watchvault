@@ -1204,6 +1204,7 @@ select:focus {
 
 .shelf-row {
   display: flex;
+  align-items: stretch;
   gap: 12px;
   overflow-x: auto;
   padding: 2px 2px 10px;
@@ -1941,4 +1942,46 @@ select:focus {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--good);
+}
+
+/* A book on the home shelf. The object is the same one the Books shelf uses,
+   so the two can never drift; only the surrounding card differs. */
+.book-shelf-card {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-shelf-card .info {
+  padding: 9px 2px 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Titles are clamped rather than left to wrap freely: a row of cards whose
+   captions run to different depths pushes every button to a different height
+   and the row stops reading as a row. */
+.book-shelf-card .title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  min-height: 2.5em;
+}
+
+.book-shelf-card .next-ep {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The action sits on the floor of the card, so every button in the row lines
+   up regardless of how long the titles are. */
+.book-shelf-card .info .btn {
+  margin-top: auto !important;
 }

@@ -9,6 +9,7 @@ import {
   isAiredEpisode,
  nextEpisode, epCode, } from "../ui.jsx";
 import { showSignal, isNewForYou, lastWatchedAt } from "../schedule.js";
+import { Book } from "../objects.jsx";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
   addMovieFromTmdb,
@@ -236,7 +237,7 @@ function timeAgo(iso) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-export default function DiscoverView({ lib, update, notify, onOpenShow }) {
+export default function DiscoverView({ lib, update, notify, onOpenShow, onOpenBook }) {
   const key = lib.settings?.tmdbKey;
   const data = lib.discover;
   const [loading, setLoading] = useState(false);
@@ -377,19 +378,46 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
     inProgress.sort((a, b) => (b.last || "").localeCompare(a.last || ""));
     const cutoff = Date.now() - PAUSED_AFTER_DAYS * 86400000;
     const isPaused = (x) => !x.last || new Date(x.last).getTime() < cutoff;
+    // Books you are part way through belong in the same row as shows you are
+    // part way through. "What am I in the middle of" is one question, and the
+    // answer stopped being films-only the moment the shelf gained books.
+    const readingNow = (lib.books || [])
+      .filter((b) => b.status === "reading")
+      .map((b) => ({ kind: "book", book: b, last: b.watchedAt || b.createdAt || "" }));
+
+    const continuing = [
+      ...inProgress
+        .filter((x) => x.st === "watching" && !isPaused(x))
+        .map((x) => ({ ...x, kind: "show" })),
+      ...readingNow,
+    ].sort((a, b) => (b.last || "").localeCompare(a.last || ""));
+
     return {
       newEpisodes: inProgress
         .filter((x) => isNewForYou(x.sig))
         .sort((a, b) => (b.sig.since || "").localeCompare(a.sig.since || ""))
+        .map((x) => ({ ...x, kind: "show" }))
         .slice(0, 12),
-      keepWatching: inProgress
-        .filter((x) => x.st === "watching" && !isPaused(x))
-        .slice(0, 12),
+      continuing: continuing.slice(0, 12),
       pickBackUp: inProgress
         .filter((x) => x.st === "watching" && isPaused(x))
+        .map((x) => ({ ...x, kind: "show" }))
         .slice(0, 12),
     };
-  }, [lib.shows]);
+  }, [lib.shows, lib.books]);
+
+  function finishBook(uuid) {
+    let title = null;
+    update((next) => {
+      const b = (next.books || []).find((x) => x.uuid === uuid);
+      if (!b) return;
+      b.status = "read";
+      b.isWatched = true;
+      if (!b.watchedAt) b.watchedAt = new Date().toISOString();
+      title = b.title;
+    });
+    if (title) notify(`✓ ${title} finished`);
+  }
 
   function markNext(uuid) {
     let logged = null;
@@ -442,12 +470,14 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
         </span>
       </div>
 
-      {libraryShelves.keepWatching.length > 0 && (
+      {libraryShelves.continuing.length > 0 && (
         <LibShelf
-          title="Keep watching"
-          rows={libraryShelves.keepWatching}
+          title="Currently"
+          rows={libraryShelves.continuing}
           onOpenShow={onOpenShow}
+          onOpenBook={onOpenBook}
           onMarkNext={markNext}
+          onFinishBook={finishBook}
         />
       )}
       {libraryShelves.newEpisodes.length > 0 && (
@@ -455,7 +485,9 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
           title="New episodes for you"
           rows={libraryShelves.newEpisodes}
           onOpenShow={onOpenShow}
+          onOpenBook={onOpenBook}
           onMarkNext={markNext}
+          onFinishBook={finishBook}
         />
       )}
 
@@ -499,7 +531,9 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
           title="Haven't seen in a while"
           rows={libraryShelves.pickBackUp}
           onOpenShow={onOpenShow}
+          onOpenBook={onOpenBook}
           onMarkNext={markNext}
+          onFinishBook={finishBook}
         />
       )}
 
@@ -518,51 +552,94 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
 }
 
 // A shelf of your own shows: progress, next episode, one-click logging.
-function LibShelf({ title, rows, onOpenShow, onMarkNext }) {
+function LibShelf({ title, rows, onOpenShow, onOpenBook, onMarkNext, onFinishBook }) {
   return (
     <div className="shelf">
       <h3>{title}</h3>
       <div className="shelf-row">
-        {rows.map(({ s, next }) => {
-          let watched = 0;
-          let total = 0;
-          for (const se of s.seasons) {
-            for (const e of se.episodes) {
-              if (!isCanonEpisode(se, e)) continue;
-              total++;
-              if (e.isWatched) watched++;
-            }
-          }
-          return (
-            <div className="card shelf-card" key={s.uuid} onClick={() => onOpenShow(s.uuid)}>
-              <div className="poster">
-                {s.meta?.poster ? (
-                  <img src={img(s.meta.poster, "w342")} alt={s.title} loading="lazy" />
-                ) : (
-                  <div className="fallback">
-                    <span>{s.title}</span>
-                  </div>
-                )}
-              </div>
-              <div className="info">
-                <div className="title">{s.title}</div>
-                <div className="next-ep">Next · {epCode(next)}</div>
-                <Progress value={watched} max={total} />
-                <button
-                  className="btn small primary"
-                  style={{ width: "100%", marginTop: 7, justifyContent: "center" }}
-                  title={next.name || undefined}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMarkNext(s.uuid);
-                  }}
-                >
-                  ✓ Watched {epCode(next)}
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        {rows.map((row) =>
+          row.kind === "book" ? (
+            <BookShelfCard
+              key={row.book.uuid}
+              book={row.book}
+              onOpen={() => onOpenBook(row.book.uuid)}
+              onFinish={() => onFinishBook(row.book.uuid)}
+            />
+          ) : (
+            <ShowShelfCard
+              key={row.s.uuid}
+              show={row.s}
+              next={row.next}
+              onOpen={() => onOpenShow(row.s.uuid)}
+              onMarkNext={() => onMarkNext(row.s.uuid)}
+            />
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ShowShelfCard({ show: s, next, onOpen, onMarkNext }) {
+  let watched = 0;
+  let total = 0;
+  for (const se of s.seasons) {
+    for (const e of se.episodes) {
+      if (!isCanonEpisode(se, e)) continue;
+      total++;
+      if (e.isWatched) watched++;
+    }
+  }
+  return (
+    <div className="card shelf-card" onClick={onOpen}>
+      <div className="poster">
+        {s.meta?.poster ? (
+          <img src={img(s.meta.poster, "w342")} alt={s.title} loading="lazy" />
+        ) : (
+          <div className="fallback">
+            <span>{s.title}</span>
+          </div>
+        )}
+      </div>
+      <div className="info">
+        <div className="title">{s.title}</div>
+        <div className="next-ep">Next · {epCode(next)}</div>
+        <Progress value={watched} max={total} />
+        <button
+          className="btn small primary"
+          style={{ width: "100%", marginTop: 7, justifyContent: "center" }}
+          title={next.name || undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMarkNext();
+          }}
+        >
+          ✓ Watched {epCode(next)}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// A book on the home shelf is the same object as on the Books shelf, so the
+// two never drift apart, with the one action that finishes it.
+function BookShelfCard({ book, onOpen, onFinish }) {
+  return (
+    <div className="shelf-card book-shelf-card">
+      <Book book={book} onClick={onOpen} caption={false} />
+      <div className="info">
+        <div className="title">{book.title}</div>
+        <div className="next-ep">{book.author || "Reading"}</div>
+        <button
+          className="btn small primary"
+          style={{ width: "100%", marginTop: 7, justifyContent: "center" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFinish();
+          }}
+        >
+          ✓ Finished
+        </button>
       </div>
     </div>
   );

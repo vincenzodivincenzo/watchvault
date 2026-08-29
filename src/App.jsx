@@ -450,6 +450,7 @@ export default function App() {
               update={update}
               notify={notify}
               onOpenShow={openShowFromHome}
+              onOpenBook={openBookFromPalette}
             />
           )}
           {view === "stats" && <StatsView lib={lib} />}
