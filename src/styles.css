@@ -1606,35 +1606,70 @@ select:focus {
 }
 
 /* ---------- Book ---------- */
-/* --t is spine thickness in px, derived from page count. */
-
-.obj-book {
-  perspective: 1100px;
-}
+/* --t is the page block's width in px, derived from page count.
+ *
+ * Built as flat layers, not as a rotated 3D solid. The first attempt put the
+ * cover at inset:0 and drew the fore-edge beside it with rotateY(88deg) inside
+ * a preserve-3d context: the cover then read as sitting among the pages rather
+ * than on them, and the edge rendered as a detached column. Layering the board
+ * over a page block is both simpler and closer to what a closed book looks
+ * like from the front.
+ */
 
 .obj-book__body {
   position: relative;
   display: block;
   aspect-ratio: 2 / 3;
-  transform-style: preserve-3d;
-  transform: rotateY(-16deg) translateZ(0);
-  transition: transform 220ms ease;
+  transition: transform 180ms ease;
 }
 
 .obj-book:hover .obj-book__body,
 .obj-book:focus-visible .obj-book__body {
-  transform: rotateY(-6deg) translateZ(0);
+  transform: translateY(-3px);
 }
 
+/* The page block. Trimmed paper stands slightly proud of the boards at head
+   and tail, so it is inset vertically rather than flush. */
+.obj-book__edge {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  right: 0;
+  width: var(--t);
+  border-radius: 0 3px 3px 0;
+  /* Two layers: the ruling that makes it read as paper rather than a slab,
+     and a wash that darkens it toward the board, where a real fore-edge falls
+     into the shadow of the cover. */
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.26) 0%,
+      rgba(0, 0, 0, 0.06) 34%,
+      rgba(0, 0, 0, 0) 70%,
+      rgba(0, 0, 0, 0.14) 100%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      #f6f1e6 0 1px,
+      #cabfa8 1px 2.5px
+    );
+}
+
+/* The front board sits ON the pages, overlapping by a pixel so there is no
+   seam between them. */
 .obj-book__front {
   position: absolute;
-  inset: 0;
-  border-radius: 2px 5px 5px 2px;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: calc(var(--t) - 1px);
+  z-index: 1;
+  border-radius: 2px 4px 4px 2px;
   overflow: hidden;
   background: var(--surface-3);
   box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.34),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+    0 9px 20px rgba(0, 0, 0, 0.32),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
 .obj-book__front img {
@@ -1644,14 +1679,16 @@ select:focus {
   display: block;
 }
 
-/* Coverless books get a printed board rather than an empty rectangle. */
+/* Coverless books get a printed board rather than an empty rectangle. The
+   left padding clears the hinge; it used to be narrower than the hinge, which
+   is why the title had no room. */
 .obj-book__blank {
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 8px;
   height: 100%;
-  padding: 16px 14px 16px 20px;
+  padding: 16px 14px 16px 24px;
   background: linear-gradient(150deg, var(--surface-3), var(--surface-2));
 }
 
@@ -1672,72 +1709,49 @@ select:focus {
   color: var(--ink-muted);
 }
 
-/* The binding: a darker band down the hinge, plus the rolled edge. */
+/* The hinge, where the board wraps the binding. A fixed narrow band: it used
+   to scale with page count and so grew wider than the board's own padding. */
 .obj-book__spine {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  width: calc(var(--t) * 0.5);
+  width: 10px;
+  z-index: 2;
   border-radius: 2px 0 0 2px;
+  pointer-events: none;
   background: linear-gradient(
     90deg,
-    rgba(0, 0, 0, 0.42) 0%,
-    rgba(0, 0, 0, 0.16) 42%,
-    rgba(255, 255, 255, 0.09) 62%,
-    rgba(0, 0, 0, 0.14) 100%
+    rgba(0, 0, 0, 0.34) 0%,
+    rgba(0, 0, 0, 0.14) 46%,
+    rgba(255, 255, 255, 0.1) 72%,
+    rgba(0, 0, 0, 0) 100%
   );
-  pointer-events: none;
 }
 
-/* The fore-edge. Ruled so that thickness reads as paper, not as shadow. */
-.obj-book__edge {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  right: 0;
-  width: var(--t);
-  transform: rotateY(88deg);
-  transform-origin: right center;
-  border-radius: 1px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      #efe7d7 0 1px,
-      #cfc4ae 1px 2px
-    );
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.28);
-}
-
-/* Reading ribbon. --d is how far into the book it sits. */
+/* Reading ribbon, hanging from the head of the book near the binding. Its
+   presence means in progress; it carries no depth, because Goodreads records
+   no page position and inventing one would be a fact the data does not have. */
 .obj-book__ribbon {
   position: absolute;
   top: -3px;
-  left: var(--d);
-  width: 7px;
-  height: 38%;
+  left: 26%;
+  width: 8px;
+  height: 40%;
+  z-index: 3;
   background: linear-gradient(180deg, var(--accent), var(--accent-hover));
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
   pointer-events: none;
 }
 
-/* Abandoned books go dusty. The fact is "I stopped", so the object shows wear
-   rather than a label. */
+/* Abandoned books go dusty, and the ribbon loses its colour. */
 .obj-book.status-abandoned .obj-book__front {
   filter: grayscale(0.72) brightness(0.82);
 }
 
 .obj-book.status-abandoned .obj-book__ribbon {
   background: linear-gradient(180deg, var(--ink-muted), var(--baseline));
-}
-
-/* Unread books sit square on; read ones have been handled. */
-.obj-book.status-read .obj-book__front {
-  box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.34),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.22),
-    inset 0 0 30px rgba(0, 0, 0, 0.14);
 }
 
 /* The object shelf. Namespaced obj- because .shelf already belongs to the Home

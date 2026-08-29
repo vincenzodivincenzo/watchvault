@@ -17,23 +17,18 @@ import { coverUrl } from "./books.js";
 // difference between a novella and Seneca is visible at thumbnail size.
 function thickness(pages) {
   if (!pages) return 14;
-  return Math.round(Math.min(46, Math.max(7, pages / 9)));
+  return Math.round(Math.min(22, Math.max(5, pages / 18)));
 }
 
-// Where the ribbon sits. Goodreads gives no page position, so a book being read
-// shows a ribbon at a neutral third rather than inventing precision it does not
-// have. An abandoned book shows it further in, because stopping is itself the
-// fact worth recording.
-function ribbonDepth(book) {
-  if (book.status === "reading") return 34;
-  if (book.status === "abandoned") return 62;
-  return null;
-}
+// A ribbon means the book is open: in progress, or abandoned part way. It
+// carries no depth. Goodreads records no page position, so encoding "how far
+// in you got" in the ribbon's placement was precision the data never had.
+const hasRibbon = (book) =>
+  book.status === "reading" || book.status === "abandoned";
 
 export function Book({ book, size = "M", onClick, caption = true }) {
   const t = thickness(book.pages || book.meta?.pages);
   const cover = coverUrl(book, size);
-  const ribbon = ribbonDepth(book);
 
   return (
     <button
@@ -43,8 +38,11 @@ export function Book({ book, size = "M", onClick, caption = true }) {
       title={`${book.title}${book.author ? ` — ${book.author}` : ""}`}
     >
       <span className="obj-book__body">
-        {/* Front board. The cover image is the board's face, not a separate
-            picture sitting on top of it. */}
+        {/* The page block, behind and to the right of the board. */}
+        <span className="obj-book__edge" />
+
+        {/* The front board. The cover image is the board's face, not a
+            separate picture sitting on top of it. */}
         <span className="obj-book__front">
           {cover ? (
             <img src={cover} alt="" loading="lazy" draggable="false" />
@@ -56,17 +54,10 @@ export function Book({ book, size = "M", onClick, caption = true }) {
           )}
         </span>
 
-        {/* Spine. Carries the title when there is no cover art, which is how a
-            real shelf works. */}
+        {/* The hinge where the board wraps the binding. */}
         <span className="obj-book__spine" />
 
-        {/* The fore-edge: the actual stack of paper, ruled so thickness reads
-            as pages rather than as a drop shadow. */}
-        <span className="obj-book__edge" />
-
-        {ribbon !== null && (
-          <span className="obj-book__ribbon" style={{ "--d": `${ribbon}%` }} />
-        )}
+        {hasRibbon(book) && <span className="obj-book__ribbon" />}
       </span>
 
       {caption && (
