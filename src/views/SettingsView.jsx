@@ -4,7 +4,6 @@ import { testKey } from "../tmdb.js";
 import { testOmdbKey } from "../omdb.js";
 import { exportBackup, getLibraryPath, pickCsvFiles } from "../store.js";
 import { importGoodreadsCsv } from "../books.js";
-import { readApplePodcasts, podcastsFromRows, mergePodcasts } from "../podcasts.js";
 import { detectBulkFlags, clearBulkFlags, countBulkFlags } from "../bulk.js";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,30 +41,6 @@ export default function SettingsView({ lib, update, onImport, notify }) {
       notify("TMDB key saved — fetching metadata in the background");
     } catch (e) {
       setKeyState(`Key check failed: ${String(e).slice(0, 140)}`);
-    }
-  }
-
-  // Apple Podcasts has no API either, but unlike Goodreads it needs no export:
-  // the app keeps a readable SQLite library on this Mac.
-  const [podBusy, setPodBusy] = useState(false);
-  async function importPodcasts() {
-    setPodBusy(true);
-    try {
-      const rows = await readApplePodcasts();
-      const incoming = podcastsFromRows(rows);
-      let report;
-      update((next) => {
-        const r = mergePodcasts(next.podcasts || [], incoming);
-        next.podcasts = r.podcasts;
-        report = r.report;
-      });
-      notify(
-        `${report.added} podcasts added, ${report.merged} updated, ${report.episodesAdded} episodes`
-      );
-    } catch (e) {
-      notify(`Podcasts import failed: ${String(e).slice(0, 140)}`);
-    } finally {
-      setPodBusy(false);
     }
   }
 
@@ -208,9 +183,6 @@ export default function SettingsView({ lib, update, onImport, notify }) {
           <button className="btn" onClick={importGoodreads}>
             ⬆︎ Import Goodreads CSV…
           </button>
-          <button className="btn" onClick={importPodcasts} disabled={podBusy}>
-            {podBusy ? "Reading…" : "⬆︎ Import Apple Podcasts"}
-          </button>
         </div>
         <p className="hint" style={{ marginTop: 10 }}>
           Import understands TV Time’s <code>tvtime-movies-*.json</code> and{" "}
@@ -222,12 +194,6 @@ export default function SettingsView({ lib, update, onImport, notify }) {
           Library, which produces a <code>goodreads_library_export.csv</code>.
           Shelves, ratings, reviews, read dates and re-read counts all come
           across; covers are fetched from Open Library afterwards.
-        </p>
-        <p className="hint">
-          Apple Podcasts needs no export at all: the app keeps its library in a
-          readable database on this Mac, so the import reads shows, episodes,
-          play dates and how far into each episode you got. Run it again any
-          time to pick up new listening.
         </p>
         <NotInterested lib={lib} update={update} notify={notify} />
       </div>

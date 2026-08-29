@@ -11,7 +11,6 @@ import SearchView from "./views/SearchView.jsx";
 import DiscoverView from "./views/DiscoverView.jsx";
 import WatchlistView from "./views/WatchlistView.jsx";
 import BooksView from "./views/BooksView.jsx";
-import PodcastsView from "./views/PodcastsView.jsx";
 import { VaultMark, Icon, nextEpisode, epCode } from "./ui.jsx";
 import CommandPalette from "./CommandPalette.jsx";
 import { enrichBooks, needsBookMeta } from "./books.js";
@@ -21,7 +20,6 @@ const NAV = [
   { id: "search", label: "Search", icon: "search" },
   { id: "movies", label: "Movies", icon: "film" },
   { id: "books", label: "Books", icon: "book" },
-  { id: "podcasts", label: "Podcasts", icon: "cassette" },
   { id: "shows", label: "TV Shows", icon: "tv" },
   { id: "watchlist", label: "To Watch", icon: "bookmark" },
   { id: "stats", label: "Stats", icon: "chart" },
@@ -211,12 +209,6 @@ export default function App() {
     setView("books");
   }, []);
 
-  const [pendingPodcast, setPendingPodcast] = useState(null);
-  const openPodcastFromHome = useCallback((uuid) => {
-    setPendingPodcast(uuid);
-    setView("podcasts");
-  }, [setView]);
-
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [bookSearchOpen, setBookSearchOpen] = useState(false);
   const openBookSearch = useCallback(() => {
@@ -333,7 +325,6 @@ export default function App() {
     movies: lib.movies.length,
     shows: lib.shows.length,
     books: (lib.books || []).length,
-    podcasts: (lib.podcasts || []).length,
     watchlist:
       lib.movies.filter((m) => !m.isWatched).length +
       lib.shows.filter(
@@ -385,7 +376,6 @@ export default function App() {
           {(view === "movies" ||
             view === "shows" ||
             view === "books" ||
-            view === "podcasts" ||
             view === "watchlist") && (
             <>
               <input
@@ -404,7 +394,7 @@ export default function App() {
                 >
                   ＋ Add
                 </button>
-              ) : view === "podcasts" ? null : (
+              ) : (
                 <button
                   className="btn primary"
                   onClick={goToSearch}
@@ -441,15 +431,6 @@ export default function App() {
               onSearchClose={() => setBookSearchOpen(false)}
             />
           )}
-          {view === "podcasts" && (
-            <PodcastsView
-              lib={lib}
-              query={query}
-              update={update}
-              pendingOpen={pendingPodcast}
-              onPendingConsumed={() => setPendingPodcast(null)}
-            />
-          )}
           {view === "shows" && (
             <ShowsView
               lib={lib}
@@ -469,8 +450,6 @@ export default function App() {
               update={update}
               notify={notify}
               onOpenShow={openShowFromHome}
-              onOpenBook={openBookFromPalette}
-              onOpenPodcast={openPodcastFromHome}
             />
           )}
           {view === "stats" && <StatsView lib={lib} />}

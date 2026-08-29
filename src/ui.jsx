@@ -52,14 +52,6 @@ export function VaultMark({ size = 26 }) {
 
 // Minimal stroke icons for navigation — one voice instead of emoji.
 const ICON_PATHS = {
-  cassette: (
-    <>
-      <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
-      <circle cx="8.5" cy="12" r="2.2" />
-      <circle cx="15.5" cy="12" r="2.2" />
-      <path d="M8.5 14.2h7" />
-    </>
-  ),
   book: (
     <>
       <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15.5" />

@@ -8,9 +8,7 @@ import {
   isCanonEpisode,
   isAiredEpisode,
  nextEpisode, epCode, } from "../ui.jsx";
-import { showSignal, isNewForYou, lastWatchedAt } from "../schedule.js";
-import { Book, Cassette } from "../objects.jsx";
-import { inProgressEpisode, lastPlayedAt } from "../podcasts.js";
+import { showSignal, lastWatchedAt } from "../schedule.js";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
   addMovieFromTmdb,
@@ -238,14 +236,7 @@ function timeAgo(iso) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-export default function DiscoverView({
-  lib,
-  update,
-  notify,
-  onOpenShow,
-  onOpenBook,
-  onOpenPodcast,
-}) {
+export default function DiscoverView({ lib, update, notify, onOpenShow }) {
   const key = lib.settings?.tmdbKey;
   const data = lib.discover;
   const [loading, setLoading] = useState(false);
@@ -380,92 +371,19 @@ export default function DiscoverView({
       if (!next) continue;
       inProgress.push({ s, st, sig, next, last: lastWatchedAt(s) });
     }
-    // "New for you" is ranked by when the episodes ARRIVED, not by when you
-    // last watched: a season that dropped last week outranks one you were
-    // poking at yesterday. Everything else still sorts by your own recency.
     inProgress.sort((a, b) => (b.last || "").localeCompare(a.last || ""));
     const cutoff = Date.now() - PAUSED_AFTER_DAYS * 86400000;
     const isPaused = (x) => !x.last || new Date(x.last).getTime() < cutoff;
-    // Books you are part way through belong in the same row as shows you are
-    // part way through. "What am I in the middle of" is one question, and the
-    // answer stopped being films-only the moment the shelf gained books.
-    const readingNow = (lib.books || [])
-      .filter((b) => b.status === "reading")
-      .map((b) => ({ kind: "book", book: b, last: b.watchedAt || b.createdAt || "" }));
-
-    // A podcast episode you are part way through is the same kind of fact as a
-    // half-read book. Podcasts are the only source here that records a real
-    // playhead, so "38% in" is measured rather than inferred.
-    const listeningNow = (lib.podcasts || [])
-      .map((p) => ({ p, ep: inProgressEpisode(p) }))
-      .filter((x) => x.ep)
-      .map((x) => ({
-        kind: "podcast",
-        pod: x.p,
-        ep: x.ep,
-        last: x.ep.watchedAt || lastPlayedAt(x.p) || "",
-      }));
-
-    const continuing = [
-      ...inProgress
-        .filter((x) => x.st === "watching" && !isPaused(x))
-        .map((x) => ({ ...x, kind: "show" })),
-      ...readingNow,
-      ...listeningNow,
-    ].sort((a, b) => (b.last || "").localeCompare(a.last || ""));
-
-    // The same question for podcasts: episodes published after the last one you
-    // played, on a show you actually follow. Unlike television this needs no
-    // season logic, because a feed is a flat list with real publish dates.
-    const FRESH_POD_DAYS = 30;
-    const podCutoff = new Date(Date.now() - FRESH_POD_DAYS * 86400000).toISOString();
-    const newPodEpisodes = (lib.podcasts || [])
-      .map((p) => {
-        const last = lastPlayedAt(p);
-        if (!last) return null;
-        const fresh = p.episodes.filter(
-          (e) =>
-            !e.isWatched &&
-            !e.progress &&
-            e.publishedAt &&
-            e.publishedAt > last &&
-            e.publishedAt > podCutoff
-        );
-        if (!fresh.length) return null;
-        return { kind: "podcast", pod: p, ep: fresh[0], count: fresh.length, last: fresh[0].publishedAt };
-      })
-      .filter(Boolean);
-
+    // Home carries one library shelf: what you are actually part way through.
+    // "New episodes for you" and "Haven't seen in a while" are gone. The
+    // classifier behind them still runs — it drives the Shows filters and the
+    // badges — it just does not get a row here.
     return {
-      newEpisodes: inProgress
-        .filter((x) => isNewForYou(x.sig))
-        .sort((a, b) => (b.sig.since || "").localeCompare(a.sig.since || ""))
-        .map((x) => ({ ...x, kind: "show" }))
-        .concat(newPodEpisodes)
-        .sort((a, b) =>
-          ((b.sig?.since || b.last) || "").localeCompare((a.sig?.since || a.last) || "")
-        )
-        .slice(0, 12),
-      continuing: continuing.slice(0, 12),
-      pickBackUp: inProgress
-        .filter((x) => x.st === "watching" && isPaused(x))
-        .map((x) => ({ ...x, kind: "show" }))
+      keepWatching: inProgress
+        .filter((x) => x.st === "watching" && !isPaused(x))
         .slice(0, 12),
     };
-  }, [lib.shows, lib.books, lib.podcasts]);
-
-  function finishBook(uuid) {
-    let title = null;
-    update((next) => {
-      const b = (next.books || []).find((x) => x.uuid === uuid);
-      if (!b) return;
-      b.status = "read";
-      b.isWatched = true;
-      if (!b.watchedAt) b.watchedAt = new Date().toISOString();
-      title = b.title;
-    });
-    if (title) notify(`✓ ${title} finished`);
-  }
+  }, [lib.shows]);
 
   function markNext(uuid) {
     let logged = null;
@@ -518,28 +436,15 @@ export default function DiscoverView({
         </span>
       </div>
 
-      {libraryShelves.continuing.length > 0 && (
+      {libraryShelves.keepWatching.length > 0 && (
         <LibShelf
-          title="Currently"
-          rows={libraryShelves.continuing}
+          title="Keep watching"
+          rows={libraryShelves.keepWatching}
           onOpenShow={onOpenShow}
-          onOpenBook={onOpenBook}
-          onOpenPodcast={onOpenPodcast}
           onMarkNext={markNext}
-          onFinishBook={finishBook}
         />
       )}
-      {libraryShelves.newEpisodes.length > 0 && (
-        <LibShelf
-          title="New episodes for you"
-          rows={libraryShelves.newEpisodes}
-          onOpenShow={onOpenShow}
-          onOpenBook={onOpenBook}
-          onOpenPodcast={onOpenPodcast}
-          onMarkNext={markNext}
-          onFinishBook={finishBook}
-        />
-      )}
+
 
       {!data && loading && (
         <div className="shelf">
@@ -576,17 +481,7 @@ export default function DiscoverView({
         />
       ))}
 
-      {libraryShelves.pickBackUp.length > 0 && (
-        <LibShelf
-          title="Haven't seen in a while"
-          rows={libraryShelves.pickBackUp}
-          onOpenShow={onOpenShow}
-          onOpenBook={onOpenBook}
-          onOpenPodcast={onOpenPodcast}
-          onMarkNext={markNext}
-          onFinishBook={finishBook}
-        />
-      )}
+
 
       {openRec && (
         <RecDetail
@@ -603,127 +498,51 @@ export default function DiscoverView({
 }
 
 // A shelf of your own shows: progress, next episode, one-click logging.
-function LibShelf({
-  title,
-  rows,
-  onOpenShow,
-  onOpenBook,
-  onOpenPodcast,
-  onMarkNext,
-  onFinishBook,
-}) {
+function LibShelf({ title, rows, onOpenShow, onMarkNext }) {
   return (
     <div className="shelf">
       <h3>{title}</h3>
       <div className="shelf-row">
-        {rows.map((row) =>
-          row.kind === "podcast" ? (
-            <PodcastShelfCard
-              key={row.pod.uuid}
-              pod={row.pod}
-              ep={row.ep}
-              count={row.count}
-              onOpen={() => onOpenPodcast(row.pod.uuid)}
-            />
-          ) : row.kind === "book" ? (
-            <BookShelfCard
-              key={row.book.uuid}
-              book={row.book}
-              onOpen={() => onOpenBook(row.book.uuid)}
-              onFinish={() => onFinishBook(row.book.uuid)}
-            />
-          ) : (
-            <ShowShelfCard
-              key={row.s.uuid}
-              show={row.s}
-              next={row.next}
-              onOpen={() => onOpenShow(row.s.uuid)}
-              onMarkNext={() => onMarkNext(row.s.uuid)}
-            />
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
-// A podcast on the home shelf. The reels already carry the position, so the
-// caption says which episode rather than repeating the number.
-function PodcastShelfCard({ pod, ep, count, onOpen }) {
-  return (
-    <div className="shelf-card pod-shelf-card">
-      <Cassette podcast={pod} onClick={onOpen} caption={false} />
-      <div className="info">
-        <div className="title">{pod.title}</div>
-        <div className="next-ep">
-          {count > 1 ? `${count} new · ` : ""}
-          {ep?.title || pod.author || ""}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ShowShelfCard({ show: s, next, onOpen, onMarkNext }) {
-  let watched = 0;
-  let total = 0;
-  for (const se of s.seasons) {
-    for (const e of se.episodes) {
-      if (!isCanonEpisode(se, e)) continue;
-      total++;
-      if (e.isWatched) watched++;
-    }
-  }
-  return (
-    <div className="card shelf-card" onClick={onOpen}>
-      <div className="poster">
-        {s.meta?.poster ? (
-          <img src={img(s.meta.poster, "w342")} alt={s.title} loading="lazy" />
-        ) : (
-          <div className="fallback">
-            <span>{s.title}</span>
-          </div>
-        )}
-      </div>
-      <div className="info">
-        <div className="title">{s.title}</div>
-        <div className="next-ep">Next · {epCode(next)}</div>
-        <Progress value={watched} max={total} />
-        <button
-          className="btn small primary"
-          style={{ width: "100%", marginTop: 7, justifyContent: "center" }}
-          title={next.name || undefined}
-          onClick={(e) => {
-            e.stopPropagation();
-            onMarkNext();
-          }}
-        >
-          ✓ Watched {epCode(next)}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// A book on the home shelf is the same object as on the Books shelf, so the
-// two never drift apart, with the one action that finishes it.
-function BookShelfCard({ book, onOpen, onFinish }) {
-  return (
-    <div className="shelf-card book-shelf-card">
-      <Book book={book} onClick={onOpen} caption={false} />
-      <div className="info">
-        <div className="title">{book.title}</div>
-        <div className="next-ep">{book.author || "Reading"}</div>
-        <button
-          className="btn small primary"
-          style={{ width: "100%", marginTop: 7, justifyContent: "center" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onFinish();
-          }}
-        >
-          ✓ Finished
-        </button>
+        {rows.map(({ s, next }) => {
+          let watched = 0;
+          let total = 0;
+          for (const se of s.seasons) {
+            for (const e of se.episodes) {
+              if (!isCanonEpisode(se, e)) continue;
+              total++;
+              if (e.isWatched) watched++;
+            }
+          }
+          return (
+            <div className="card shelf-card" key={s.uuid} onClick={() => onOpenShow(s.uuid)}>
+              <div className="poster">
+                {s.meta?.poster ? (
+                  <img src={img(s.meta.poster, "w342")} alt={s.title} loading="lazy" />
+                ) : (
+                  <div className="fallback">
+                    <span>{s.title}</span>
+                  </div>
+                )}
+              </div>
+              <div className="info">
+                <div className="title">{s.title}</div>
+                <div className="next-ep">Next · {epCode(next)}</div>
+                <Progress value={watched} max={total} />
+                <button
+                  className="btn small primary"
+                  style={{ width: "100%", marginTop: 7, justifyContent: "center" }}
+                  title={next.name || undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkNext(s.uuid);
+                  }}
+                >
+                  ✓ Watched {epCode(next)}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
