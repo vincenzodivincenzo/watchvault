@@ -118,19 +118,21 @@ export default function BooksView({
 
   return (
     <>
-      <div className="toolbar">
-        <div className="filters">
-          {FILTERS.map(([id, label]) => (
-            <button
-              key={id}
-              className={`chip ${filter === id ? "on" : ""}`}
-              onClick={() => setFilter(id)}
-            >
-              {label} <span className="chip-count">{counts[id]}</span>
-            </button>
-          ))}
-        </div>
-        <label className="sortwrap">
+      {/* .chips / .chip.active / .chips .sort are the app's own toolbar
+          classes. An earlier version of this view invented .toolbar, .filters,
+          .sortwrap and .chip.on, none of which exist in the stylesheet, which
+          is why it had no spacing and no active-chip highlight. */}
+      <div className="chips">
+        {FILTERS.map(([id, label]) => (
+          <button
+            key={id}
+            className={`chip ${filter === id ? "active" : ""}`}
+            onClick={() => setFilter(id)}
+          >
+            {label} {counts[id]}
+          </button>
+        ))}
+        <span className="sort">
           Sort
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
             {SORTS.map((s) => (
@@ -139,7 +141,7 @@ export default function BooksView({
               </option>
             ))}
           </select>
-        </label>
+        </span>
       </div>
 
       {shown.length === 0 && (

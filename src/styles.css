@@ -354,12 +354,18 @@ select:focus {
 
 /* ---------- Filter chips ---------- */
 
+/* The row gap matters as much as the column gap here. Books has six filters
+   plus the sort control, so on anything narrower than a wide window the row
+   wraps and the sort lands on a line of its own. With a single 8px gap that
+   line sat 8px under the chips and 20px above the grid, which reads as one
+   crammed block. Separate gaps, and real separation from the grid below. */
 .chips {
   display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
   align-items: center;
+  column-gap: 8px;
+  row-gap: 18px;
+  margin-bottom: 30px;
 }
 
 .chip {
@@ -386,13 +392,13 @@ select:focus {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   color: var(--ink-muted);
   font-size: 12.5px;
 }
 
 .chips select {
-  padding: 4px 8px;
+  padding: 6px 11px;
   font-size: 12.5px;
 }
 
@@ -1743,8 +1749,8 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 30px 26px;
-  /* A little headroom for the hover lift. */
-  padding: 6px 0 24px;
+  /* .chips supplies the separation above; this is headroom for the hover lift. */
+  padding: 8px 0 24px;
 }
 
 .empty-note {
