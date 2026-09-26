@@ -7,24 +7,27 @@ import MoviesView from "./views/MoviesView.jsx";
 import ShowsView from "./views/ShowsView.jsx";
 import StatsView from "./views/StatsView.jsx";
 import SettingsView from "./views/SettingsView.jsx";
-import SearchView from "./views/SearchView.jsx";
 import DiscoverView from "./views/DiscoverView.jsx";
 import WatchlistView from "./views/WatchlistView.jsx";
-import BooksView from "./views/BooksView.jsx";
 import { VaultMark, Icon, nextEpisode, epCode } from "./ui.jsx";
 import CommandPalette from "./CommandPalette.jsx";
-import { enrichBooks, needsBookMeta } from "./books.js";
 
 const NAV = [
   { id: "discover", label: "Home", icon: "home" },
-  { id: "search", label: "Search", icon: "search" },
   { id: "movies", label: "Movies", icon: "film" },
-  { id: "books", label: "Books", icon: "book" },
   { id: "shows", label: "TV Shows", icon: "tv" },
   { id: "watchlist", label: "To Watch", icon: "bookmark" },
   { id: "stats", label: "Stats", icon: "chart" },
   { id: "settings", label: "Settings", icon: "sliders" },
 ];
+
+// Search is not a section any more: each shelf searches its own catalogue
+// through the one box in the toolbar. These are the shelves that have one.
+const SHELVES = {
+  movies: "Search your films and TMDB…",
+  shows: "Search your series and TMDB…",
+  watchlist: "Filter your watchlist…",
+};
 
 export default function App() {
   const [lib, setLib] = useState(null);
@@ -135,37 +138,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tmdbKey, pendingMeta === 0, lib === null]);
 
-  // Open Library covers and blurbs for books. No key needed, so unlike the
-  // TMDB and OMDb passes this one just runs.
-  const pendingBooks = lib?.books ? needsBookMeta(lib.books) : 0;
-  const bookRun = useRef(null);
-  const patchBook = useCallback((uuid, patch) => {
-    setLib((prev) => ({
-      ...prev,
-      books: (prev.books || []).map((b) =>
-        b.uuid === uuid ? { ...b, ...patch } : b
-      ),
-    }));
-  }, []);
-  useEffect(() => {
-    if (!lib?.books?.length || pendingBooks === 0 || bookRun.current) return;
-    const controller = new AbortController();
-    bookRun.current = controller;
-    enrichBooks(lib.books, {
-      signal: controller.signal,
-      onItem: patchBook,
-    })
-      .catch((e) => notify(`Open Library error: ${String(e).slice(0, 120)}`))
-      .finally(() => {
-        if (bookRun.current === controller) bookRun.current = null;
-      });
-    return () => {
-      controller.abort();
-      if (bookRun.current === controller) bookRun.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingBooks === 0, lib === null]);
-
   // Community ratings (OMDb) enrichment — runs quietly once a key is set.
   const omdbKey = lib?.settings?.omdbKey || "";
   const pendingOmdb = lib ? needsOmdb(lib) : 0;
@@ -203,18 +175,7 @@ export default function App() {
     setView("movies");
   }, []);
 
-  const [pendingBook, setPendingBook] = useState(null);
-  const openBookFromPalette = useCallback((uuid) => {
-    setPendingBook(uuid);
-    setView("books");
-  }, []);
-
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [bookSearchOpen, setBookSearchOpen] = useState(false);
-  const openBookSearch = useCallback(() => {
-    setView("books");
-    setBookSearchOpen(true);
-  }, [setView]);
 
   // Log the next aired episode of a show without opening anything.
   const markNextEpisode = useCallback(
@@ -237,13 +198,20 @@ export default function App() {
     [update, notify]
   );
 
-  const goToSearch = useCallback(() => {
-    setView("search");
-    setTimeout(() => window.dispatchEvent(new Event("wv-focus-search")), 60);
+  // Jump to a shelf with its search box focused and, optionally, primed —
+  // this is what the palette's "find X in Movies" rows do. setViewRaw rather
+  // than setView because that wrapper clears the query on every switch, which
+  // is exactly the thing we are trying to carry across.
+  const searchRef = useRef(null);
+  const openShelfSearch = useCallback((next, q = "") => {
+    setViewRaw(next);
+    setQuery(q);
+    setTimeout(() => searchRef.current?.focus(), 60);
   }, []);
 
-  // ⌘K opens the palette. ⌘F keeps its narrower old meaning, the TMDB search
-  // page, because that is muscle memory for adding a title.
+  // ⌘K opens the palette. ⌘F puts the caret in the current shelf's search box,
+  // which is now the one way in to both your library and the catalogue behind
+  // it; on a shelf-less view it lands on Movies.
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -252,12 +220,13 @@ export default function App() {
         setPaletteOpen((v) => !v);
       } else if (e.key === "f") {
         e.preventDefault();
-        goToSearch();
+        if (SHELVES[view]) searchRef.current?.focus();
+        else openShelfSearch("movies");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goToSearch]);
+  }, [view, openShelfSearch]);
 
   async function handleImport() {
     const files = await pickImportFiles();
@@ -269,11 +238,8 @@ export default function App() {
     const bits = [];
     if (report.moviesAdded) bits.push(`${report.moviesAdded} movies added`);
     if (report.showsAdded) bits.push(`${report.showsAdded} shows added`);
-    if (report.booksAdded) bits.push(`${report.booksAdded} books added`);
-    if (report.moviesMerged || report.showsMerged || report.booksMerged)
-      bits.push(
-        `${report.moviesMerged + report.showsMerged + (report.booksMerged || 0)} merged`
-      );
+    if (report.moviesMerged || report.showsMerged)
+      bits.push(`${report.moviesMerged + report.showsMerged} merged`);
     for (const s of report.skippedFiles) bits.push(s);
     notify(bits.length ? `Import: ${bits.join(", ")}` : "Nothing imported");
   }
@@ -324,7 +290,6 @@ export default function App() {
   const counts = {
     movies: lib.movies.length,
     shows: lib.shows.length,
-    books: (lib.books || []).length,
     watchlist:
       lib.movies.filter((m) => !m.isWatched).length +
       lib.shows.filter(
@@ -373,62 +338,28 @@ export default function App() {
             drag surface, Safari-style. */}
         <div className="topbar" data-tauri-drag-region="">
           <h1 data-tauri-drag-region="">{NAV.find((n) => n.id === view)?.label}</h1>
-          {(view === "movies" ||
-            view === "shows" ||
-            view === "books" ||
-            view === "watchlist") && (
-            <>
-              <input
-                className="search"
-                placeholder={`Filter ${view}…`}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              {/* Each shelf adds from its own catalogue: TMDB for screen,
-                  Open Library for books. Neither needs a key. */}
-              {view === "books" ? (
-                <button
-                  className="btn primary"
-                  onClick={() => setBookSearchOpen(true)}
-                  title="Search Open Library"
-                >
-                  ＋ Add
-                </button>
-              ) : (
-                <button
-                  className="btn primary"
-                  onClick={goToSearch}
-                  title={tmdbKey ? "Search TMDB (⌘K)" : "Requires a TMDB key (Settings)"}
-                >
-                  ＋ Add
-                </button>
-              )}
-            </>
+          {/* One box per shelf. It filters what you own and searches the
+              catalogue behind it at the same time, so adding a title and
+              finding one are the same gesture — there is no ＋ Add elsewhere. */}
+          {SHELVES[view] && (
+            <input
+              ref={searchRef}
+              className="search"
+              placeholder={SHELVES[view]}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
           )}
         </div>
         <div className="content">
-          {view === "search" && (
-            <SearchView lib={lib} update={update} notify={notify} />
-          )}
           {view === "movies" && (
             <MoviesView
               lib={lib}
               query={query}
               update={update}
+              notify={notify}
               pendingOpen={pendingMovie}
               onPendingConsumed={() => setPendingMovie(null)}
-            />
-          )}
-          {view === "books" && (
-            <BooksView
-              lib={lib}
-              query={query}
-              update={update}
-              notify={notify}
-              pendingOpen={pendingBook}
-              onPendingConsumed={() => setPendingBook(null)}
-              searchOpen={bookSearchOpen}
-              onSearchClose={() => setBookSearchOpen(false)}
             />
           )}
           {view === "shows" && (
@@ -471,10 +402,8 @@ export default function App() {
         setView={setView}
         openShow={openShowFromHome}
         openMovie={openMovieFromPalette}
-        openBook={openBookFromPalette}
         markNext={markNextEpisode}
-        onSearchTmdb={goToSearch}
-        onSearchBooks={openBookSearch}
+        onShelfSearch={openShelfSearch}
       />
 
       {toast && <div className="toast">{toast}</div>}

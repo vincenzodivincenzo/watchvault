@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Poster, Modal, Stars, fmtDate, movieBadge, CommunityRatings, WatchDate } from "../ui.jsx";
+import { Poster, movieBadge, CommunityRatings, WatchDate } from "../ui.jsx";
+import { DetailCard, favoriteAction } from "../DetailCard.jsx";
 import { img } from "../tmdb.js";
+import CatalogResults from "./CatalogResults.jsx";
 
 const SORTS = [
   { id: "watched_desc", label: "Recently watched", needsWatched: true },
@@ -12,7 +14,14 @@ const SORTS = [
   { id: "year_asc", label: "Year (oldest)" },
 ];
 
-export default function MoviesView({ lib, query, update, pendingOpen, onPendingConsumed }) {
+export default function MoviesView({
+  lib,
+  query,
+  update,
+  notify,
+  pendingOpen,
+  onPendingConsumed,
+}) {
   // Filter & sort choices are remembered in the library file.
   const prefs = lib.settings?.viewPrefs?.movies || {};
   const [filter, setFilterState] = useState(prefs.filter || "all");
@@ -66,15 +75,21 @@ export default function MoviesView({ lib, query, update, pendingOpen, onPendingC
   const sortOptions = SORTS.filter((s) => !(filter === "towatch" && s.needsWatched));
   const effectiveSort = sortOptions.some((s) => s.id === sort) ? sort : "added_desc";
 
+  // A query searches the whole shelf. Leaving the status filter on would hide
+  // the very film you are looking for behind a chip you set last week — and
+  // then offer it back as "not in your library", which it is.
+  const searching = query.trim().length > 0;
+
   const movies = useMemo(() => {
     let list = lib.movies;
-    if (query) {
-      const q = query.toLowerCase();
+    if (searching) {
+      const q = query.trim().toLowerCase();
       list = list.filter((m) => m.title.toLowerCase().includes(q));
+    } else {
+      if (filter === "watched") list = list.filter((m) => m.isWatched);
+      if (filter === "towatch") list = list.filter((m) => !m.isWatched);
+      if (filter === "favorites") list = list.filter((m) => m.isFavorite);
     }
-    if (filter === "watched") list = list.filter((m) => m.isWatched);
-    if (filter === "towatch") list = list.filter((m) => !m.isWatched);
-    if (filter === "favorites") list = list.filter((m) => m.isFavorite);
     const by = {
       watched_desc: (a, b) => (b.watchedAt || "").localeCompare(a.watchedAt || ""),
       added_desc: (a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""),
@@ -85,7 +100,7 @@ export default function MoviesView({ lib, query, update, pendingOpen, onPendingC
       community_desc: (a, b) => (b.omdb?.imdb || 0) - (a.omdb?.imdb || 0),
     }[effectiveSort] || ((a, b) => a.title.localeCompare(b.title));
     return [...list].sort(by);
-  }, [lib.movies, query, filter, effectiveSort]);
+  }, [lib.movies, query, searching, filter, effectiveSort]);
 
   const open = openUuid ? lib.movies.find((m) => m.uuid === openUuid) : null;
 
@@ -126,8 +141,18 @@ export default function MoviesView({ lib, query, update, pendingOpen, onPendingC
         </span>
       </div>
 
+      {searching && (
+        <p className="search-scope">
+          Searching all {lib.movies.length} films — filters paused.
+        </p>
+      )}
+
       {movies.length === 0 ? (
-        <div className="empty">No movies match this filter.</div>
+        query ? (
+          <p className="empty-filter">Nothing in your movies matches “{query}”.</p>
+        ) : (
+          <div className="empty">No movies match this filter.</div>
+        )
       ) : (
         <div className="poster-grid">
           {movies.map((m) => (
@@ -145,6 +170,15 @@ export default function MoviesView({ lib, query, update, pendingOpen, onPendingC
         </div>
       )}
 
+      {/* The same box that filters the shelf searches TMDB behind it. */}
+      <CatalogResults
+        kind="movie"
+        query={query}
+        lib={lib}
+        update={update}
+        notify={notify}
+      />
+
       {open && (
         <MovieDetail
           movie={open}
@@ -159,104 +193,66 @@ export default function MoviesView({ lib, query, update, pendingOpen, onPendingC
 
 function MovieDetail({ movie, patch, onRemove, onClose }) {
   const m = movie;
-  const backdrop = m.meta?.backdrop ? img(m.meta.backdrop, "w780") : null;
+  const set = (fn) => patch(m.uuid, fn);
+
   return (
-    <Modal onClose={onClose} title={movie.title}>
-      <div
-        className="backdrop"
-        style={backdrop ? { backgroundImage: `url(${backdrop})` } : { height: 90 }}
-      />
-      <div className="body">
-        <div className="poster-col">
-          <Poster item={m} badge={movieBadge(m)} />
-        </div>
-        <div className="meta-col">
-          <h2>{m.title}</h2>
-          <div className="subline">
-            {[
-              m.year,
-              m.meta?.runtime ? `${m.meta.runtime} min` : null,
-              m.isWatched && m.watchedAt ? (
-                <React.Fragment key="watched">
-                  Watched{" "}
-                  <WatchDate
-                    iso={m.watchedAt}
-                    onChange={(iso) => patch(m.uuid, (x) => (x.watchedAt = iso))}
-                  />
-                </React.Fragment>
-              ) : null,
-              m.rewatchCount ? `${m.rewatchCount} rewatch${m.rewatchCount > 1 ? "es" : ""}` : null,
-            ]
-              .filter(Boolean)
-              .map((part, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && " · "}
-                  {part}
-                </React.Fragment>
-              ))}
-          </div>
-          {m.meta?.genres?.length ? (
-            <div className="genres">
-              {m.meta.genres.map((g) => (
-                <span key={g}>{g}</span>
-              ))}
-            </div>
-          ) : null}
-          <CommunityRatings omdb={m.omdb} />
-          {m.meta?.overview && <p className="overview">{m.meta.overview}</p>}
-          <div className="actions">
-            <button
-              className={`btn ${m.isWatched ? "" : "primary"}`}
-              onClick={() =>
-                patch(m.uuid, (x) => {
-                  x.isWatched = !x.isWatched;
-                  x.watchedAt = x.isWatched ? new Date().toISOString() : null;
-                  if (!x.isWatched) x.rewatchCount = 0;
-                })
-              }
-            >
-              {m.isWatched ? "✓ Watched" : "Mark watched"}
-            </button>
-            {m.isWatched && (
-              <button
-                className="btn"
-                title="Log a rewatch"
-                onClick={() =>
-                  patch(m.uuid, (x) => {
-                    x.rewatchCount = (x.rewatchCount || 0) + 1;
-                    x.watchedAt = new Date().toISOString();
-                  })
-                }
-              >
-                ↻ Rewatch
-              </button>
-            )}
-            <button
-              className="btn"
-              onClick={() => patch(m.uuid, (x) => (x.isFavorite = !x.isFavorite))}
-            >
-              {m.isFavorite ? "❤️ Favorite" : "🤍 Favorite"}
-            </button>
-            <Stars
-              value={m.rating || 0}
-              onChange={(v) => patch(m.uuid, (x) => (x.rating = v))}
-            />
-          </div>
-          <div className="actions">
-            <button
-              className="btn small danger"
-              onClick={() => {
-                if (confirm(`Remove “${m.title}” from your library?`)) {
-                  onRemove(m.uuid);
-                  onClose();
-                }
-              }}
-            >
-              Remove from library
-            </button>
-          </div>
-        </div>
-      </div>
-    </Modal>
+    <DetailCard
+      onClose={onClose}
+      title={m.title}
+      art={<Poster item={m} badge={movieBadge(m)} />}
+      backdropUrl={m.meta?.backdrop ? img(m.meta.backdrop, "w780") : null}
+      facts={[
+        m.year,
+        m.meta?.runtime ? `${m.meta.runtime} min` : null,
+        m.isWatched && m.watchedAt ? (
+          <React.Fragment key="watched">
+            Watched <WatchDate iso={m.watchedAt} onChange={(iso) => set((x) => (x.watchedAt = iso))} />
+          </React.Fragment>
+        ) : null,
+        m.rewatchCount ? `${m.rewatchCount} rewatch${m.rewatchCount > 1 ? "es" : ""}` : null,
+      ]}
+      tags={m.meta?.genres || []}
+      extra={<CommunityRatings omdb={m.omdb} />}
+      overview={m.meta?.overview}
+      actions={[
+        {
+          id: "watched",
+          label: m.isWatched ? "✓ Watched" : "Mark watched",
+          variant: m.isWatched ? null : "primary",
+          active: m.isWatched,
+          onClick: () =>
+            set((x) => {
+              x.isWatched = !x.isWatched;
+              x.watchedAt = x.isWatched ? new Date().toISOString() : null;
+              if (!x.isWatched) x.rewatchCount = 0;
+            }),
+        },
+        m.isWatched && {
+          id: "rewatch",
+          label: "↻ Rewatch",
+          title: "Log a rewatch",
+          onClick: () =>
+            set((x) => {
+              x.rewatchCount = (x.rewatchCount || 0) + 1;
+              x.watchedAt = new Date().toISOString();
+            }),
+        },
+        favoriteAction(m.isFavorite, () => set((x) => (x.isFavorite = !x.isFavorite))),
+      ]}
+      rating={{ value: m.rating || 0, onChange: (v) => set((x) => (x.rating = v)) }}
+      minorActions={[
+        {
+          id: "remove",
+          label: "Remove from library",
+          variant: "danger",
+          onClick: () => {
+            if (confirm(`Remove “${m.title}” from your library?`)) {
+              onRemove(m.uuid);
+              onClose();
+            }
+          },
+        },
+      ]}
+    />
   );
 }

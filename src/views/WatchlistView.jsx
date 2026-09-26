@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Poster,
-  Modal,
-  Stars,
   fmtDate,
   CommunityRatings,
   isCanonEpisode,
   isAiredEpisode,
 } from "../ui.jsx";
+import { DetailCard } from "../DetailCard.jsx";
 import { watchProviders } from "../tmdb.js";
 
 function isShowToWatch(s) {
@@ -250,53 +249,47 @@ function LogWatchModal({ kind, item, onConfirm, onClose }) {
       : 0;
 
   return (
-    <Modal onClose={onClose} title={`Log ${item.title} as watched`}>
-      <div className="body" style={{ marginTop: 0, paddingTop: 24 }}>
-        <div className="poster-col">
-          <Poster item={item} />
-        </div>
-        <div className="meta-col" style={{ paddingTop: 0 }}>
-          <h2>{item.title}</h2>
-          <div className="subline">
-            {kind === "movie"
-              ? "Log this movie as watched"
-              : `Log the whole series as watched — ${airedEps} aired episodes`}
-          </div>
+    <DetailCard
+      onClose={onClose}
+      title={item.title}
+      art={<Poster item={item} />}
+      facts={[
+        kind === "movie"
+          ? "Log this movie as watched"
+          : `Log the whole series as watched — ${airedEps} aired episodes`,
+      ]}
+      extra={
+        <>
           <CommunityRatings omdb={item.omdb} />
           <Providers item={item} />
-          {item.meta?.overview && (
-            <p className="overview" style={{ marginTop: 6 }}>
-              {item.meta.overview.slice(0, 220)}
-              {item.meta.overview.length > 220 ? "…" : ""}
-            </p>
-          )}
-          <div className="actions" style={{ alignItems: "center", marginTop: 14 }}>
-            <label style={{ fontSize: 13, color: "var(--ink-2)" }}>
-              Watched on{" "}
-              <input
-                type="date"
-                value={date}
-                max={today}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </label>
-            <Stars value={rating} onChange={(v) => setRating(v || 0)} />
-          </div>
-          <div className="actions" style={{ marginTop: 16 }}>
-            <button
-              className="btn primary"
-              onClick={() =>
-                onConfirm({ kind, uuid: item.uuid, date, rating: rating || null })
-              }
-            >
-              ✓ Mark watched{rating ? ` · ★ ${rating}` : ""}
-            </button>
-            <button className="btn" onClick={onClose}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </Modal>
+        </>
+      }
+      overview={
+        item.meta?.overview
+          ? item.meta.overview.slice(0, 220) + (item.meta.overview.length > 220 ? "…" : "")
+          : null
+      }
+      aside={
+        <label className="detail-date">
+          Watched on{" "}
+          <input
+            type="date"
+            value={date}
+            max={today}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </label>
+      }
+      actions={[
+        {
+          id: "watched",
+          label: `✓ Mark watched${rating ? ` · ★ ${rating}` : ""}`,
+          variant: "primary",
+          onClick: () => onConfirm({ kind, uuid: item.uuid, date, rating: rating || null }),
+        },
+        { id: "cancel", label: "Cancel", onClick: onClose },
+      ]}
+      rating={{ value: rating, onChange: (v) => setRating(v || 0) }}
+    />
   );
 }

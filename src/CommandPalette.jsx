@@ -17,12 +17,19 @@ import { nextEpisode, epCode, showProgress } from "./ui.jsx";
 // 2019 even when both match the query equally well.
 const VIEWS = [
   ["discover", "Home"],
-  ["search", "Search"],
   ["movies", "Movies"],
   ["shows", "TV Shows"],
   ["watchlist", "To Watch"],
   ["stats", "Stats"],
   ["settings", "Settings"],
+];
+
+// Where a query goes when your own library does not hold the answer. Each of
+// these opens the shelf with the term already in its search box, and the
+// shelf's catalogue results appear under its own grid.
+const ELSEWHERE = [
+  ["movies", "Movies", "films on TMDB"],
+  ["shows", "TV Shows", "series on TMDB"],
 ];
 
 export default function CommandPalette({
@@ -32,10 +39,8 @@ export default function CommandPalette({
   setView,
   openShow,
   openMovie,
-  openBook,
   markNext,
-  onSearchTmdb,
-  onSearchBooks,
+  onShelfSearch,
 }) {
   const [query, setQuery] = useState("");
 
@@ -77,20 +82,7 @@ export default function CommandPalette({
       hint: m.isWatched ? `watched${m.year ? ` · ${m.year}` : ""}` : "to watch",
       sort: m.watchedAt || m.createdAt || "",
     }));
-    const BOOK_HINT = {
-      read: "read",
-      reading: "reading",
-      "to-read": "to read",
-      abandoned: "abandoned",
-    };
-    const books = (lib.books || []).map((b) => ({
-      kind: "book",
-      uuid: b.uuid,
-      title: b.title,
-      hint: [BOOK_HINT[b.status] || b.status, b.author].filter(Boolean).join(" · "),
-      sort: b.watchedAt || b.createdAt || "",
-    }));
-    return [...shows, ...movies, ...books].sort((a, b) =>
+    return [...shows, ...movies].sort((a, b) =>
       b.sort.localeCompare(a.sort)
     );
   }, [lib]);
@@ -151,9 +143,7 @@ export default function CommandPalette({
                     run(() =>
                       t.kind === "show"
                         ? openShow(t.uuid)
-                        : t.kind === "book"
-                          ? openBook(t.uuid)
-                          : openMovie(t.uuid)
+                        : openMovie(t.uuid)
                     )
                   }
                 >
@@ -181,25 +171,21 @@ export default function CommandPalette({
         {query.trim() && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Elsewhere">
-              <CommandItem
-                value={`__tmdb__ ${query}`}
-                onSelect={() => run(() => onSearchTmdb(query))}
-              >
-                <span className="wv-pal-title">
-                  Search TMDB for “{query.trim()}”
-                </span>
-                <CommandShortcut className="wv-pal-hint">films and series</CommandShortcut>
-              </CommandItem>
-              <CommandItem
-                value={`__openlibrary__ ${query}`}
-                onSelect={() => run(() => onSearchBooks(query))}
-              >
-                <span className="wv-pal-title">
-                  Search Open Library for “{query.trim()}”
-                </span>
-                <CommandShortcut className="wv-pal-hint">books</CommandShortcut>
-              </CommandItem>
+            <CommandGroup heading="Look further">
+              {ELSEWHERE.map(([id, label, source]) => (
+                <CommandItem
+                  key={`find-${id}`}
+                  value={`__find__${id} ${query}`}
+                  onSelect={() => run(() => onShelfSearch(id, query.trim()))}
+                >
+                  <span className="wv-pal-title">
+                    Find “{query.trim()}” in {label}
+                  </span>
+                  <CommandShortcut className="wv-pal-hint">
+                    yours and {source}
+                  </CommandShortcut>
+                </CommandItem>
+              ))}
             </CommandGroup>
           </>
         )}

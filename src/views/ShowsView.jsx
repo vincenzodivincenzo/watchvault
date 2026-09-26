@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Poster,
-  Modal,
-  Stars,
   Progress,
   showProgress,
   showState,
@@ -15,6 +13,8 @@ import {
 } from "../ui.jsx";
 import { seasonCadence, lastWatchedAt } from "../schedule.js";
 import { img, tvDetails, fetchAllSeasons, tvMeta, findByExternalId } from "../tmdb.js";
+import { DetailCard, favoriteAction } from "../DetailCard.jsx";
+import CatalogResults from "./CatalogResults.jsx";
 
 const SORTS = [
   { id: "title", label: "Title A–Z" },
@@ -114,13 +114,16 @@ export default function ShowsView({
     { id: "favorites", label: `Favorites ${counts.favorites}` },
   ];
 
+  // A query searches the whole shelf; the status chips step aside while it
+  // does, so a series you are part-way through cannot hide behind "To watch".
+  const searching = query.trim().length > 0;
+
   const shows = useMemo(() => {
     let list = lib.shows;
-    if (query) {
-      const q = query.toLowerCase();
+    if (searching) {
+      const q = query.trim().toLowerCase();
       list = list.filter((s) => s.title.toLowerCase().includes(q));
-    }
-    if (filter === "favorites") list = list.filter((s) => s.isFavorite);
+    } else if (filter === "favorites") list = list.filter((s) => s.isFavorite);
     else if (filter !== "all") list = list.filter((s) => filterBucket(s) === filter);
     const by = {
       title: (a, b) => a.title.localeCompare(b.title),
@@ -134,7 +137,7 @@ export default function ShowsView({
         (lastWatchedAt(b) || "").localeCompare(lastWatchedAt(a) || ""),
     }[sort];
     return [...list].sort(by);
-  }, [lib.shows, query, filter, sort]);
+  }, [lib.shows, query, searching, filter, sort]);
 
   const open = openUuid ? lib.shows.find((s) => s.uuid === openUuid) : null;
   const key = lib.settings?.tmdbKey;
@@ -217,8 +220,18 @@ export default function ShowsView({
         </span>
       </div>
 
+      {searching && (
+        <p className="search-scope">
+          Searching all {lib.shows.length} series — filters paused.
+        </p>
+      )}
+
       {shows.length === 0 ? (
-        <div className="empty">No shows match this filter.</div>
+        query ? (
+          <p className="empty-filter">Nothing in your shows matches “{query}”.</p>
+        ) : (
+          <div className="empty">No shows match this filter.</div>
+        )
       ) : (
         <div className="poster-grid">
           {shows.map((s) => {
@@ -241,6 +254,15 @@ export default function ShowsView({
           })}
         </div>
       )}
+
+      {/* The same box that filters the shelf searches TMDB behind it. */}
+      <CatalogResults
+        kind="show"
+        query={query}
+        lib={lib}
+        update={update}
+        notify={notify}
+      />
 
       {open && (
         <ShowDetail
@@ -298,85 +320,72 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
     }
   }
 
-  return (
-    <Modal onClose={onClose} title={show.title}>
-      <div
-        className="backdrop"
-        style={backdrop ? { backgroundImage: `url(${backdrop})` } : { height: 90 }}
-      />
-      <div className="body">
-        <div className="poster-col">
-          <Poster item={s} badge={showBadge(s)} />
-        </div>
-        <div className="meta-col">
-          <h2>{s.title}</h2>
-          <div className="subline">
-            {[
-              s.meta?.firstAirDate ? s.meta.firstAirDate.slice(0, 4) : null,
-              s.meta?.statusText || null,
-              `${watched}/${total} episodes watched`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </div>
-          <div className="subline">
-            {(() => {
-              const cad = seasonCadence(s);
-              if (!cad) return null;
-              const months = (cad.medianGapDays / 30.44).toFixed(0);
-              return cad.overdueDays > 0
-                ? `Runs about every ${months} months · next season overdue by ${cad.overdueDays} days`
-                : `Runs about every ${months} months · next season expected around ${fmtDate(cad.expected)}`;
-            })()}
-          </div>
-          {s.meta?.genres?.length ? (
-            <div className="genres">
-              {s.meta.genres.map((g) => (
-                <span key={g}>{g}</span>
-              ))}
-            </div>
-          ) : null}
-          <CommunityRatings omdb={s.omdb} />
-          {s.meta?.overview && <p className="overview">{s.meta.overview}</p>}
-          <div className="actions">
-            <button
-              className="btn"
-              onClick={() => patch(s.uuid, (x) => (x.isFavorite = !x.isFavorite))}
-            >
-              {s.isFavorite ? "❤️ Favorite" : "🤍 Favorite"}
-            </button>
-            <button className="btn" disabled={syncing} onClick={syncEpisodes}>
-              {syncing ? "Syncing…" : "⟳ Sync episodes"}
-            </button>
-            <button
-              className="btn"
-              title="Mark as stopped watching"
-              onClick={() =>
-                patch(s.uuid, (x) => {
-                  x.status = x.status === "stopped" ? null : "stopped";
-                })
-              }
-            >
-              {s.status === "stopped" ? "▶ Resume" : "⏸ Stop tracking"}
-            </button>
-            <Stars
-              value={s.rating || 0}
-              onChange={(v) => patch(s.uuid, (x) => (x.rating = v))}
-            />
-          </div>
-          <div className="actions">
-            <button
-              className="btn small"
-              title="Hidden shows don't appear in Stats charts"
-              onClick={() => patch(s.uuid, (x) => (x.hideFromStats = !x.hideFromStats))}
-            >
-              {s.hideFromStats ? "📊 Show in stats" : "📊 Hide from stats"}
-            </button>
-          </div>
-        </div>
-      </div>
+  // Cadence is a sentence about the calendar, not a fact about the show, so it
+  // gets its own line under the facts rather than being crammed into them.
+  const cad = seasonCadence(s);
+  const cadence = cad
+    ? cad.overdueDays > 0
+      ? `Runs about every ${(cad.medianGapDays / 30.44).toFixed(0)} months · next season overdue by ${cad.overdueDays} days`
+      : `Runs about every ${(cad.medianGapDays / 30.44).toFixed(0)} months · next season expected around ${fmtDate(cad.expected)}`
+    : null;
 
-      <div style={{ padding: "0 24px 24px" }}>
+  return (
+    <DetailCard
+      onClose={onClose}
+      title={s.title}
+      art={<Poster item={s} badge={showBadge(s)} />}
+      backdropUrl={backdrop}
+      facts={[
+        s.meta?.firstAirDate ? s.meta.firstAirDate.slice(0, 4) : null,
+        s.meta?.statusText || null,
+        `${watched}/${total} episodes watched`,
+      ]}
+      notes={[cadence]}
+      tags={s.meta?.genres || []}
+      extra={<CommunityRatings omdb={s.omdb} />}
+      overview={s.meta?.overview}
+      actions={[
+        favoriteAction(s.isFavorite, () => patch(s.uuid, (x) => (x.isFavorite = !x.isFavorite))),
+        {
+          id: "sync",
+          label: syncing ? "Syncing…" : "⟳ Sync episodes",
+          disabled: syncing,
+          onClick: syncEpisodes,
+        },
+        {
+          id: "stop",
+          label: s.status === "stopped" ? "▶ Resume" : "⏸ Stop tracking",
+          title: "Mark as stopped watching",
+          active: s.status === "stopped",
+          onClick: () =>
+            patch(s.uuid, (x) => {
+              x.status = x.status === "stopped" ? null : "stopped";
+            }),
+        },
+      ]}
+      rating={{ value: s.rating || 0, onChange: (v) => patch(s.uuid, (x) => (x.rating = v)) }}
+      minorActions={[
+        {
+          id: "stats",
+          label: s.hideFromStats ? "📊 Show in stats" : "📊 Hide from stats",
+          title: "Hidden shows don't appear in Stats charts",
+          active: s.hideFromStats,
+          onClick: () => patch(s.uuid, (x) => (x.hideFromStats = !x.hideFromStats)),
+        },
+        {
+          id: "remove",
+          label: "Remove from library",
+          variant: "danger",
+          onClick: () => {
+            if (confirm(`Remove “${s.title}” and its watch history from your library?`)) {
+              onRemove(s.uuid);
+              onClose();
+            }
+          },
+        },
+      ]}
+    >
+      <div className="detail-extra">
         <div className="seasons">
           {[...s.seasons]
             .filter((se) => se.episodes.length > 0)
@@ -497,20 +506,7 @@ function ShowDetail({ show, lib, patch, onRemove, notify, onClose }) {
               );
             })}
         </div>
-        <div className="actions" style={{ marginTop: 14 }}>
-          <button
-            className="btn small danger"
-            onClick={() => {
-              if (confirm(`Remove “${s.title}” and its watch history from your library?`)) {
-                onRemove(s.uuid);
-                onClose();
-              }
-            }}
-          >
-            Remove from library
-          </button>
-        </div>
       </div>
-    </Modal>
+    </DetailCard>
   );
 }

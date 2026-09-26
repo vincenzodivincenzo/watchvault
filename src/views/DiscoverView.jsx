@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Modal,
-  Stars,
+  Poster,
   VaultMark,
   Progress,
   showState,
   isCanonEpisode,
   isAiredEpisode,
  nextEpisode, epCode, } from "../ui.jsx";
+import { DetailCard, favoriteAction } from "../DetailCard.jsx";
 import { showSignal, lastWatchedAt } from "../schedule.js";
 import { img, recommendations, movieDetails, tvDetails } from "../tmdb.js";
 import {
@@ -332,24 +332,37 @@ export default function DiscoverView({ lib, update, notify, onOpenShow }) {
     notify(`Got it — “${rec.title}” won't be suggested again`);
   }
 
-  async function add(rec, watched) {
+  // `log` is the same shape every other sheet produces: { watched, date,
+  // rating, favorite }, all optional. It used to be a bare `watched` flag that
+  // stamped the moment you clicked, which is why a film you saw in 2019 landed
+  // in the library dated today and vanished from the year's chart.
+  async function add(rec, log) {
     setAdding(`${rec.kind}-${rec.id}`);
     try {
       const { uuid, title } =
         rec.kind === "movie"
           ? await addMovieFromTmdb(update, key, rec.id)
           : await addShowFromTmdb(update, key, rec.id);
-      if (watched) {
-        markItemWatched(update, rec.kind, uuid, {
-          dateIso: new Date().toISOString(),
-          rating: watched.rating || null,
+      const list = rec.kind === "movie" ? "movies" : "shows";
+      const patch = (fn) =>
+        update((next) => {
+          const it = next[list].find((x) => x.uuid === uuid);
+          if (it) fn(it);
         });
+      if (log?.watched) {
+        markItemWatched(update, rec.kind, uuid, {
+          dateIso: new Date(`${log.date}T12:00:00`).toISOString(),
+          rating: log.rating || null,
+        });
+      } else if (log?.rating) {
+        patch((x) => (x.rating = log.rating));
       }
+      if (log?.favorite) patch((x) => (x.isFavorite = true));
       update((next) => dropEverywhere(next, rec));
       notify(
-        watched
-          ? `“${title}” logged as watched${watched.rating ? ` · ★ ${watched.rating}` : ""}`
-          : `Added “${title}” to your watchlist`
+        log?.watched
+          ? `“${title}” logged as watched${log.rating ? ` · ★ ${log.rating}` : ""}`
+          : `Added “${title}” to your ${log?.favorite ? "library as a favorite" : "watchlist"}`
       );
       setOpenRec(null);
     } catch (e) {
@@ -619,6 +632,8 @@ function RecShelf({ title, items, adding, onOpen, onAdd, onDismiss, onMore, more
 function RecDetail({ rec, tmdbKey, adding, onAdd, onDismiss, onClose }) {
   const [det, setDet] = useState(null);
   const [rating, setRating] = useState(0);
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     let live = true;
@@ -630,70 +645,66 @@ function RecDetail({ rec, tmdbKey, adding, onAdd, onDismiss, onClose }) {
     };
   }, [rec.id, rec.kind, tmdbKey]);
 
-  const backdrop = rec.backdrop ? img(rec.backdrop, "w780") : null;
-  const facts = [
-    rec.year,
-    rec.kind === "movie"
-      ? det?.runtime
-        ? `${det.runtime} min`
-        : null
-      : det
-        ? `${det.number_of_seasons} season${det.number_of_seasons === 1 ? "" : "s"} · ${det.number_of_episodes} episodes`
-        : null,
-    rec.kind === "show" ? det?.status : null,
-    rec.vote ? `★ ${rec.vote.toFixed(1)} on TMDB` : null,
-  ].filter(Boolean);
   const busy = adding === `${rec.kind}-${rec.id}`;
 
   return (
-    <Modal onClose={onClose} title={rec.title || rec.name}>
-      <div
-        className="backdrop"
-        style={backdrop ? { backgroundImage: `url(${backdrop})` } : { height: 90 }}
-      />
-      <div className="body">
-        <div className="poster-col">
-          <div className="poster" style={{ borderRadius: 10, overflow: "hidden" }}>
-            {rec.poster ? (
-              <img src={img(rec.poster, "w342")} alt={rec.title} />
-            ) : (
-              <div className="fallback">
-                <span>{rec.title}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="meta-col">
-          <h2>{rec.title}</h2>
-          <div className="subline">{facts.join(" · ")}</div>
-          {det?.genres?.length ? (
-            <div className="genres">
-              {det.genres.map((g) => (
-                <span key={g.id}>{g.name}</span>
-              ))}
-            </div>
-          ) : null}
-          <p className="overview">{rec.overview || det?.overview || "No description available."}</p>
-          <p className="hint">Suggested because you watched {rec.because}.</p>
-          <div className="actions" style={{ alignItems: "center" }}>
-            <Stars value={rating} onChange={(v) => setRating(v || 0)} />
-            <span className="hint" style={{ margin: 0 }}>
-              rate it if you've already seen it
-            </span>
-          </div>
-          <div className="actions" style={{ marginTop: 10 }}>
-            <button className="btn primary" disabled={busy} onClick={() => onAdd(rec, null)}>
-              ＋ Add to watchlist
-            </button>
-            <button className="btn" disabled={busy} onClick={() => onAdd(rec, { rating })}>
-              ✓ Seen it{rating ? ` · ★ ${rating}` : ""}
-            </button>
-            <button className="btn" disabled={busy} onClick={() => onDismiss(rec)}>
-              ✕ Not interested
-            </button>
-          </div>
-        </div>
-      </div>
-    </Modal>
+    <DetailCard
+      onClose={onClose}
+      title={rec.title}
+      art={<Poster item={{ title: rec.title, year: rec.year, meta: { poster: rec.poster } }} />}
+      backdropUrl={rec.backdrop ? img(rec.backdrop, "w780") : null}
+      facts={[
+        rec.year,
+        rec.kind === "movie"
+          ? det?.runtime
+            ? `${det.runtime} min`
+            : null
+          : det
+            ? `${det.number_of_seasons} season${det.number_of_seasons === 1 ? "" : "s"} · ${det.number_of_episodes} episodes`
+            : null,
+        rec.kind === "show" ? det?.status : null,
+        rec.vote ? `★ ${rec.vote.toFixed(1)} on TMDB` : null,
+      ]}
+      notes={[`Suggested because you watched ${rec.because}.`]}
+      tags={(det?.genres || []).map((g) => g.name)}
+      overview={rec.overview || det?.overview || "No description available."}
+      aside={
+        <label className="detail-date">
+          Watched on{" "}
+          <input
+            type="date"
+            value={date}
+            max={today}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </label>
+      }
+      actions={[
+        {
+          id: "seen",
+          label: `✓ Seen it${rating ? ` · ★ ${rating}` : ""}`,
+          variant: "primary",
+          disabled: busy,
+          onClick: () => onAdd(rec, { watched: true, date, rating }),
+        },
+        {
+          id: "list",
+          label: "＋ Add to watchlist",
+          disabled: busy,
+          onClick: () => onAdd(rec, { rating }),
+        },
+        favoriteAction(false, () => onAdd(rec, { favorite: true, rating }), {
+          disabled: busy,
+        }),
+        {
+          id: "dismiss",
+          label: "✕ Not interested",
+          disabled: busy,
+          onClick: () => onDismiss(rec),
+        },
+      ]}
+      rating={{ value: rating, onChange: (v) => setRating(v || 0) }}
+      hint="“Seen it” logs it on the date above; the stars come with it either way."
+    />
   );
 }

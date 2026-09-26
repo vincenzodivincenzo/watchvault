@@ -7,7 +7,7 @@ function isV4Token(key) {
   return key && key.startsWith("eyJ");
 }
 
-async function tm(key, path, params = {}) {
+async function tm(key, path, params = {}, { signal } = {}) {
   const url = new URL(BASE + path);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) url.searchParams.set(k, v);
@@ -16,11 +16,11 @@ async function tm(key, path, params = {}) {
   if (isV4Token(key)) headers.Authorization = `Bearer ${key}`;
   else url.searchParams.set("api_key", key);
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal });
   if (res.status === 429) {
     // Rate limited — wait and retry once.
     await new Promise((r) => setTimeout(r, 1500));
-    return tm(key, path, params);
+    return tm(key, path, params, { signal });
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -82,11 +82,17 @@ export async function watchProviders(key, kind, id, country) {
   };
 }
 
-export async function searchMulti(key, query) {
-  const r = await tm(key, "/search/multi", { query, include_adult: "false" });
-  return (r.results || []).filter(
-    (x) => x.media_type === "movie" || x.media_type === "tv"
-  );
+// Each shelf searches its own half of the catalogue, so a film never turns up
+// while you are looking at series. media_type is stamped on by hand: the
+// per-kind endpoints omit it, and everything downstream reads it.
+export async function searchMovies(key, query, { signal } = {}) {
+  const r = await tm(key, "/search/movie", { query, include_adult: "false" }, { signal });
+  return (r.results || []).map((x) => ({ ...x, media_type: "movie" }));
+}
+
+export async function searchTv(key, query, { signal } = {}) {
+  const r = await tm(key, "/search/tv", { query, include_adult: "false" }, { signal });
+  return (r.results || []).map((x) => ({ ...x, media_type: "tv" }));
 }
 
 // --- Mapping helpers: TMDB responses → library `meta` objects ---
